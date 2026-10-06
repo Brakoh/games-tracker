@@ -16,11 +16,14 @@ type CollectionState = {
   wishes: string[];
   catalog: Record<string, CatalogGame>;
   sort: SortMode;
+  shelfView: "grid" | "list";
   switch2RawgId: number | null;
   setSwitch2: (rawgId: number) => void;
   commitPlatforms: (draft: Record<string, boolean>) => void;
   reorder: (fromId: string, toId: string) => void;
+  turnOff: (id: string) => void;
   setSort: (sort: SortMode) => void;
+  setShelfView: (shelfView: "grid" | "list") => void;
   remember: (game: CatalogGame) => void;
   toggleFinished: (gameId: string, platformId: string) => void;
   addFormat: (game: CatalogGame, platformId: string, format: Format) => void;
@@ -43,6 +46,7 @@ export const useCollection = create<CollectionState>()(
       wishes: [],
       catalog: seedCatalog(),
       sort: "alpha",
+      shelfView: "grid",
       switch2RawgId: null,
       setSwitch2: (rawgId) => set({ switch2RawgId: rawgId }),
       commitPlatforms: (draft) => {
@@ -51,6 +55,11 @@ export const useCollection = create<CollectionState>()(
           if (draft[platform.id] && !order.includes(platform.id)) order.push(platform.id);
         }
         set({ active: { ...draft }, order, onboarded: true });
+      },
+      turnOff: (id) => {
+        const active = get().active;
+        if (!active[id]) return;
+        set({ active: { ...active, [id]: false } });
       },
       reorder: (fromId, toId) => {
         if (fromId === toId) return;
@@ -73,6 +82,7 @@ export const useCollection = create<CollectionState>()(
         });
       },
       setSort: (sort) => set({ sort }),
+      setShelfView: (shelfView) => set({ shelfView }),
       remember: (game) => set({ catalog: { ...get().catalog, [game.id]: game } }),
       toggleFinished: (gameId, platformId) =>
         set({
@@ -113,6 +123,7 @@ export const useCollection = create<CollectionState>()(
         wishes: state.wishes,
         catalog: state.catalog,
         sort: state.sort,
+        shelfView: state.shelfView,
         switch2RawgId: state.switch2RawgId,
       }),
     },

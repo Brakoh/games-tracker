@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Image, Platform, Pressable, ScrollView, Text, useWindowDimensions, View } from "react-native";
+import { useRef, useState } from "react";
+import { Image, Platform, Pressable, ScrollView, Text, useWindowDimensions, View, type ViewStyle } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useCaseCover } from "../case-cover";
@@ -84,9 +84,9 @@ function Notebook({ children }: { children: React.ReactNode }) {
   );
 }
 
-export function SortBar({ sort, onSort }: { sort: SortMode; onSort: (sort: SortMode) => void }) {
+export function SortBar({ sort, onSort, nowrap }: { sort: SortMode; onSort: (sort: SortMode) => void; nowrap?: boolean }) {
   return (
-    <View className="flex-row flex-wrap gap-2">
+    <View className="flex-row gap-2" style={{ flexWrap: nowrap ? "nowrap" : "wrap", justifyContent: nowrap ? "flex-end" : "flex-start" }}>
       <SkewTag label="A–Z" active={sort === "alpha"} onPress={() => onSort("alpha")} />
       <SkewTag label="Unfinished" active={sort === "open"} onPress={() => onSort("open")} />
       <SkewTag label="Finished" active={sort === "done"} onPress={() => onSort("done")} />
@@ -187,11 +187,71 @@ export function CaseTile({
   );
 }
 
-export function CaseRow({ children }: { children: React.ReactNode }) {
+const DITHER_FADE = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABwAAAAICAYAAADqSp8ZAAAAUUlEQVR4nGNkIAC+fnr8n5tPlhGdj4/GZx4jPkliASmWM5FiKDY+uT6lCkB2BDoNwwR9iM9n6DSyz9BpqgJ8jiDbclJ8CqOxYQr9ht1R+CwHAFUHyzha+0AsAAAAAElFTkSuQmCC";
+const DITHER_BOTTOM = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAgAAACMCAYAAABBLuhFAAAAk0lEQVR42u2V3QqAMAhG9/6v2RsEXRcEg2Bq/ix1ZDBi5b6O58Jam3Yd+3ZS+/eT2D1NAtmiiIF8GMRw70UMopdODPyEDAxLJPSVqYsnU5QHPQNk1JsBMhrtwc7AT5jHAK1isCRkYPhBwjCGHBio4VEMGgb09xzoYfhEgIc1GbBRGOmBn/Cdh2KwFmTw4NBmFSgLLmgAlG22Px6yAAAAAElFTkSuQmCC";
+const DITHER_WIDTH = 28;
+const DITHER_BOTTOM_HEIGHT = 140;
+
+export function DitherEdge({ side }: { side: "left" | "right" }) {
   return (
-    <ScrollView horizontal showsHorizontalScrollIndicator contentContainerStyle={{ gap: 12, paddingBottom: 10, paddingRight: 8, paddingTop: 2 }}>
-      {children}
-    </ScrollView>
+    <View
+      pointerEvents="none"
+      style={{
+        position: "absolute",
+        top: 0,
+        bottom: 0,
+        width: DITHER_WIDTH,
+        ...(side === "right" ? { right: 0 } : { left: 0 }),
+        transform: side === "left" ? [{ scaleX: -1 }] : undefined,
+        opacity: 0.72,
+        zIndex: 2,
+      }}
+    >
+      {Platform.OS === "web" ? (
+        <View
+          style={{
+            width: "100%",
+            height: "100%",
+            backgroundImage: `url("${DITHER_FADE}")`,
+            backgroundRepeat: "repeat",
+            backgroundSize: `${DITHER_WIDTH}px 8px`,
+          } as ViewStyle}
+        />
+      ) : (
+        <Image pointerEvents="none" source={{ uri: DITHER_FADE }} resizeMode="repeat" style={{ width: "100%", height: "100%" }} />
+      )}
+    </View>
+  );
+}
+
+export function CaseRow({ children }: { children: React.ReactNode }) {
+  const frame = useRef({ x: 0, content: 0, layout: 0 });
+  const [edges, setEdges] = useState({ left: false, right: false });
+  const sync = (next: Partial<{ x: number; content: number; layout: number }>) => {
+    frame.current = { ...frame.current, ...next };
+    const { x, content, layout } = frame.current;
+    const max = content - layout;
+    const left = x > 8;
+    const right = max > 8 && x < max - 8;
+    setEdges((current) => (current.left === left && current.right === right ? current : { left, right }));
+  };
+  return (
+    <View style={{ marginHorizontal: -12 }}>
+      <ScrollView
+        horizontal
+        showsVerticalScrollIndicator={false}
+        showsHorizontalScrollIndicator={false}
+        scrollEventThrottle={16}
+        onScroll={(event) => sync({ x: event.nativeEvent.contentOffset.x })}
+        onLayout={(event) => sync({ layout: event.nativeEvent.layout.width })}
+        onContentSizeChange={(width) => sync({ content: width })}
+        contentContainerStyle={{ gap: 12, paddingBottom: 10, paddingLeft: 12, paddingRight: 12, paddingTop: 2 }}
+      >
+        {children}
+      </ScrollView>
+      {edges.left ? <DitherEdge side="left" /> : null}
+      {edges.right ? <DitherEdge side="right" /> : null}
+    </View>
   );
 }
 
@@ -222,14 +282,57 @@ export function StickyAdd({ onPress }: { onPress: () => void }) {
   );
 }
 
+export function BottomDither() {
+  return (
+    <View
+      pointerEvents="none"
+      style={
+        {
+          position: "absolute",
+          left: 0,
+          right: 0,
+          bottom: 0,
+          height: DITHER_BOTTOM_HEIGHT,
+          zIndex: 2,
+          opacity: 1,
+          backgroundImage: `url("${DITHER_BOTTOM}")`,
+          backgroundRepeat: "repeat",
+          backgroundSize: `8px ${DITHER_BOTTOM_HEIGHT}px`,
+        } as ViewStyle
+      }
+    >
+      {Platform.OS === "web" ? null : (
+        <Image pointerEvents="none" source={{ uri: DITHER_BOTTOM }} resizeMode="repeat" style={{ width: "100%", height: "100%" }} />
+      )}
+    </View>
+  );
+}
+
 export function CornerAction({ label, onPress }: { label: string; onPress: () => void }) {
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const framed = width >= 760;
   return (
-    <View style={{ position: "absolute", right: 16, bottom: framed ? 16 : Math.max(insets.bottom, 16) }}>
-      <SkewTag label={label} active onPress={onPress} />
-    </View>
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      onPress={onPress}
+      style={{
+        position: "absolute",
+        left: 28,
+        right: 28,
+        bottom: (framed ? 0 : insets.bottom) + DITHER_WIDTH,
+        zIndex: 3,
+        backgroundColor: RED,
+        borderWidth: 3,
+        borderColor: INK,
+        ...hard,
+        paddingVertical: 14,
+        alignItems: "center",
+      }}
+    >
+      <Text style={{ color: "#FFFFFF", fontFamily: DISPLAY, fontSize: 18, letterSpacing: 0.6, textTransform: "uppercase" }}>{label}</Text>
+    </Pressable>
   );
 }
 

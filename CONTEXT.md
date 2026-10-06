@@ -21,7 +21,7 @@ La piattaforma computer, Steam Deck compreso. Un negozio non è una piattaforma:
 _Avoid_: Steam Deck, Mac, Linux
 
 **Piattaforma attiva**:
-Una console o il PC che hai deciso di mostrare. Spegnendola, lei e i suoi giochi si nascondono; riaccendendola, i giochi e il segno Finito tornano. Si possono spegnere tutte: in quel caso in home resta solo il modo per attivarne una.
+Una console o il PC che hai deciso di mostrare. Spegnendola, lei e i suoi giochi si nascondono; riaccendendola, i giochi e il segno Finito tornano. Si possono spegnere tutte: in quel caso in home compare Nothing here yet, come su uno scaffale senza giochi, e resta Edit systems.
 _Avoid_: Eliminare, filtro, piattaforma abilitata
 
 **Piattaforma in evidenza**:
@@ -53,7 +53,7 @@ Come si dispongono le card, tutte visibili: per titolo, con i non finiti in alto
 _Avoid_: Filtro
 
 **Impostazioni**:
-Il menu aperto dal tasto nella barra in alto. Sull'app si chiama Settings e contiene Wishes e Add platforms.
+Il menu aperto dal tasto nella barra in alto. Sull'app si chiama Settings e contiene Wishes e Add systems. La schermata aperta da lì, e da Edit systems in home, si chiama Systems.
 _Avoid_: Profilo, account
 
 **Desiderio**:

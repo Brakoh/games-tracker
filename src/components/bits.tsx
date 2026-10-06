@@ -46,14 +46,16 @@ export function SearchField({
   value,
   onChange,
   placeholder,
+  labeled = true,
 }: {
   value: string;
   onChange: (value: string) => void;
   placeholder: string;
+  labeled?: boolean;
 }) {
   return (
     <View className="bg-paper px-3 pb-3 pt-3" style={{ borderBottomWidth: 3, borderBottomColor: INK }}>
-      <Text style={kicker}>Search</Text>
+      {labeled ? <Text style={kicker}>Search</Text> : null}
       <TextInput
         value={value}
         onChangeText={onChange}
@@ -77,14 +79,39 @@ export function SearchField({
   );
 }
 
+export function TrashIcon() {
+  const ink = "#FFFFFF";
+  return (
+    <View style={{ width: 20, height: 22, alignItems: "center" }}>
+      <View style={{ width: 7, height: 2, backgroundColor: ink }} />
+      <View style={{ width: 18, height: 3, backgroundColor: ink, marginTop: 1 }} />
+      <View
+        style={{
+          width: 16,
+          height: 14,
+          marginTop: 2,
+          borderWidth: 2,
+          borderColor: ink,
+          flexDirection: "row",
+          justifyContent: "space-evenly",
+          alignItems: "center",
+        }}
+      >
+        <View style={{ width: 2, height: 7, backgroundColor: ink }} />
+        <View style={{ width: 2, height: 7, backgroundColor: ink }} />
+      </View>
+    </View>
+  );
+}
+
 export function PlusButton({ onPress }: { onPress: () => void }) {
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel="Add platforms"
+      accessibilityLabel="Edit systems"
       onPress={onPress}
       style={{
-        marginHorizontal: 28,
+        marginHorizontal: 78,
         marginTop: 12,
         marginBottom: 4,
         transform: [{ skewX: "-12deg" }],
@@ -92,11 +119,14 @@ export function PlusButton({ onPress }: { onPress: () => void }) {
         borderWidth: 3,
         borderColor: INK,
         ...hard,
-        paddingVertical: 4,
+        paddingVertical: 8,
+        paddingHorizontal: 8,
         alignItems: "center",
       }}
     >
-      <Text style={{ transform: [{ skewX: "12deg" }], color: "#FFFFFF", fontFamily: DISPLAY, fontSize: 28, lineHeight: 32 }}>+</Text>
+      <Text style={{ transform: [{ skewX: "12deg" }], color: "#FFFFFF", fontFamily: DISPLAY, fontSize: 15, lineHeight: 18, letterSpacing: 0.4 }}>
+        EDIT SYSTEMS
+      </Text>
     </Pressable>
   );
 }
@@ -120,6 +150,62 @@ export function ListRow({ label, onPress }: { label: string; onPress: () => void
     >
       <Text style={display(18)}>{label}</Text>
     </Pressable>
+  );
+}
+
+function HazardMark() {
+  return (
+    <View accessibilityElementsHidden importantForAccessibility="no" style={{ width: 44, height: 38, alignItems: "center" }}>
+      <View
+        style={{
+          width: 0,
+          height: 0,
+          borderLeftWidth: 22,
+          borderRightWidth: 22,
+          borderBottomWidth: 38,
+          borderLeftColor: "transparent",
+          borderRightColor: "transparent",
+          borderBottomColor: INK,
+        }}
+      />
+      <View
+        style={{
+          position: "absolute",
+          top: 5,
+          width: 0,
+          height: 0,
+          borderLeftWidth: 17,
+          borderRightWidth: 17,
+          borderBottomWidth: 29,
+          borderLeftColor: "transparent",
+          borderRightColor: "transparent",
+          borderBottomColor: PAPER,
+        }}
+      />
+      <Text style={{ position: "absolute", top: 16, fontFamily: DISPLAY, fontSize: 16, lineHeight: 18, color: INK }}>!</Text>
+    </View>
+  );
+}
+
+export function EmptyNote() {
+  return (
+    <View style={{ flex: 1, alignItems: "center", paddingHorizontal: 32, paddingTop: 168 }}>
+      <HazardMark />
+      <Text
+        style={{
+          marginTop: 14,
+          fontFamily: DISPLAY,
+          fontSize: 28,
+          lineHeight: 32,
+          letterSpacing: 0.5,
+          textTransform: "uppercase",
+          textAlign: "center",
+          color: INK,
+        }}
+      >
+        Nothing here yet
+      </Text>
+    </View>
   );
 }
 

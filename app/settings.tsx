@@ -7,7 +7,7 @@ export default function SettingsScreen() {
   return (
     <Phone title="Settings" showBack onBack={() => router.back()}>
       <ListRow label="Wishes" onPress={() => router.push("/wishes")} />
-      <ListRow label="Add platforms" onPress={() => router.push("/platforms")} />
+      <ListRow label="Add systems" onPress={() => router.push("/platforms")} />
     </Phone>
   );
 }

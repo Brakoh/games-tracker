@@ -32,7 +32,7 @@ export default function AddScreen() {
 
   return (
     <Phone title={title} showBack onBack={() => router.back()}>
-      <ScrollView stickyHeaderIndices={[0]} contentContainerStyle={{ paddingBottom: 24 }}>
+      <ScrollView stickyHeaderIndices={[0]} showsVerticalScrollIndicator={false} showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 24 }}>
         <SearchField value={query} onChange={setQuery} placeholder="Search games" />
         <View style={{ padding: 12, gap: 10 }}>
           {fixed ? <Text style={display(13)}>{platformById(list, fixed)?.name}</Text> : null}

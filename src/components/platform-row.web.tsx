@@ -1,9 +1,13 @@
 import { createContext, createElement, useCallback, useContext, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
+import { flushSync } from "react-dom";
 import { Pressable, Text, View } from "react-native";
 
 import { insertionIndex, ROW_GAP, rowShift, GRAB_SCALE, SLIDE_MS } from "../platform-drag";
 import { CARD, DISPLAY, INK, RED } from "../theme";
-import { display } from "./bits";
+import { display, TrashIcon } from "./bits";
+import { DitherEdge } from "./chrome";
+
+const SCREEN_EDGE = 12;
 
 type Drag = {
   id: string;
@@ -17,10 +21,14 @@ type Drag = {
 type DragApi = {
   drag: Drag | null;
   ids: string[];
+  openId: string | null;
+  setOpen: (id: string | null) => void;
   grab: (id: string, clientY: number, row: HTMLElement) => void;
   move: (clientY: number) => void;
   finish: () => void;
 };
+
+const ACTION = 76;
 
 const DragContext = createContext<DragApi | null>(null);
 
@@ -34,6 +42,7 @@ export function PlatformList({
   children: ReactNode;
 }) {
   const [drag, setDrag] = useState<Drag | null>(null);
+  const [openId, setOpenId] = useState<string | null>(null);
   const dragRef = useRef<Drag | null>(null);
   const startY = useRef(0);
   const idsRef = useRef(ids);
@@ -101,8 +110,11 @@ export function PlatformList({
     };
   }, [finish, move]);
 
+  const setOpen = useCallback((id: string | null) => setOpenId(id), []);
+
   const grab = useCallback((id: string, clientY: number, row: HTMLElement) => {
     if (dragRef.current) return;
+    setOpenId(null);
     const list = row.parentElement;
     if (!list) return;
     const rows = [...list.children];
@@ -118,7 +130,7 @@ export function PlatformList({
     attachRef.current();
   }, []);
 
-  const api = useMemo<DragApi>(() => ({ drag, ids, grab, move, finish }), [drag, ids, grab, move, finish]);
+  const api = useMemo<DragApi>(() => ({ drag, ids, openId, setOpen, grab, move, finish }), [drag, ids, openId, setOpen, grab, move, finish]);
 
   return createElement(DragContext.Provider, { value: api }, createElement("div", null, children));
 }
@@ -129,6 +141,7 @@ export function PlatformRow({
   count,
   highlighted,
   onOpen,
+  onTurnOff,
 }: {
   id: string;
   name: string;
@@ -138,6 +151,7 @@ export function PlatformRow({
   afterId?: string;
   onOpen: () => void;
   onReorder: (fromId: string, toId: string) => void;
+  onTurnOff: () => void;
 }) {
   const drag = useContext(DragContext);
   const index = drag ? drag.ids.indexOf(id) : -1;
@@ -145,6 +159,72 @@ export function PlatformRow({
   const shift = drag?.drag && index >= 0 ? rowShift(index, drag.drag.from, drag.drag.pitch, drag.drag.dy) : 0;
   const translate = mine && drag?.drag ? drag.drag.dy : shift;
   const scale = mine && drag?.drag && !drag.drag.settling ? GRAB_SCALE : 1;
+  const open = drag?.openId === id;
+  const [offset, setOffset] = useState(0);
+  const [live, setLive] = useState(false);
+  const offsetRef = useRef(0);
+  const moved = useRef(0);
+  const listeners = useRef<{ move: (event: PointerEvent) => void; up: () => void } | null>(null);
+
+  useEffect(() => {
+    if (live) return;
+    const next = open ? -ACTION : 0;
+    offsetRef.current = next;
+    setOffset(next);
+  }, [live, open]);
+
+  useEffect(() => {
+    return () => {
+      if (!listeners.current) return;
+      window.removeEventListener("pointermove", listeners.current.move);
+      window.removeEventListener("pointerup", listeners.current.up);
+      window.removeEventListener("pointercancel", listeners.current.up);
+    };
+  }, []);
+
+  const beginSwipe = (clientX: number, clientY: number) => {
+    if (drag?.drag) return;
+    const originX = clientX;
+    const originY = clientY;
+    const origin = offsetRef.current;
+    let axis: "x" | "y" | null = null;
+    moved.current = 0;
+    const move = (event: PointerEvent) => {
+      const dx = event.clientX - originX;
+      const dy = event.clientY - originY;
+      if (!axis) {
+        if (Math.abs(dx) < 6 && Math.abs(dy) < 6) return;
+        axis = Math.abs(dx) > Math.abs(dy) ? "x" : "y";
+        if (axis === "x") setLive(true);
+      }
+      if (axis !== "x") return;
+      const next = Math.min(0, Math.max(-ACTION, origin + dx));
+      moved.current = Math.abs(dx);
+      offsetRef.current = next;
+      setOffset(next);
+    };
+    const up = () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+      window.removeEventListener("pointercancel", up);
+      listeners.current = null;
+      if (axis === "x") {
+        const next = offsetRef.current < -ACTION / 2 ? -ACTION : 0;
+        offsetRef.current = next;
+        flushSync(() => {
+          setLive(false);
+          setOffset(next);
+          drag?.setOpen(next === -ACTION ? id : null);
+        });
+        return;
+      }
+      setLive(false);
+    };
+    listeners.current = { move, up };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+    window.addEventListener("pointercancel", up);
+  };
 
   return createElement(
     "div",
@@ -153,48 +233,114 @@ export function PlatformRow({
       style: {
         position: "relative",
         zIndex: mine ? 2 : 0,
-        margin: "10px 12px 0",
+        margin: "10px 8px 0 12px",
         transform: `translateY(${translate}px)`,
         transition: drag?.drag?.settling ? `transform ${SLIDE_MS}ms cubic-bezier(0.2, 0.8, 0.2, 1)` : "none",
       },
     },
+    offset < 0
+      ? createElement(
+          "div",
+          {
+            style: {
+              position: "absolute",
+              left: -SCREEN_EDGE,
+              top: 0,
+              bottom: 0,
+              width: 28,
+              zIndex: 6,
+              pointerEvents: "none",
+            },
+          },
+          createElement(DitherEdge, { side: "left" }),
+        )
+      : null,
     createElement(
       "div",
-      {
-        style: {
-          display: "flex",
-          flexDirection: "row",
-          alignItems: "center",
-          gap: 10,
-          background: highlighted ? "#E7E2D2" : CARD,
-          border: `3px solid ${INK}`,
-          boxShadow: "4px 4px 0 0 #0C0B08",
-          padding: "12px",
-          transform: `scale(${scale})`,
-          transformOrigin: "center",
-          transition: `transform ${SLIDE_MS}ms cubic-bezier(0.2, 0.8, 0.2, 1)`,
+      { style: { position: "relative", overflow: "visible", padding: "0 4px 4px 0" } },
+      createElement(
+        Pressable,
+        {
+          accessibilityRole: "button",
+          accessibilityLabel: "Off",
+          onPress: onTurnOff,
+          style: {
+            position: "absolute",
+            top: 0,
+            right: 4,
+            bottom: 4,
+            width: ACTION,
+            borderWidth: 3,
+            borderColor: INK,
+            backgroundColor: RED,
+            alignItems: "center",
+            justifyContent: "center",
+            boxShadow: "4px 4px 0 0 #0C0B08",
+          },
         },
-      },
+        createElement(TrashIcon),
+      ),
       createElement(
         "div",
         {
           onPointerDown: (event: ReactPointerEvent<HTMLDivElement>) => {
-            event.preventDefault();
-            event.stopPropagation();
-            const row = event.currentTarget.closest("[data-platform-row]");
-            if (row instanceof HTMLElement) drag?.grab(id, event.clientY, row);
+            if (event.button !== 0) return;
+            beginSwipe(event.clientX, event.clientY);
           },
-          style: { width: 28, cursor: mine ? "grabbing" : "grab", display: "flex", flexDirection: "column", gap: 3, touchAction: "none" },
-          "aria-label": "Reorder",
+          style: {
+            position: "relative",
+            zIndex: 1,
+            display: "flex",
+            flexDirection: "row",
+            alignItems: "center",
+            gap: 10,
+            background: highlighted ? "#E7E2D2" : CARD,
+            border: `3px solid ${INK}`,
+            boxShadow: "4px 4px 0 0 #0C0B08",
+            padding: "12px",
+            transform: `translateX(${offset}px) scale(${scale})`,
+            transformOrigin: "center",
+            transition: live ? "none" : `transform ${SLIDE_MS}ms cubic-bezier(0.2, 0.8, 0.2, 1)`,
+            touchAction: "pan-y",
+            userSelect: "none",
+          },
         },
-        createElement(Grip),
+        createElement(
+          "div",
+          {
+            onPointerDown: (event: ReactPointerEvent<HTMLDivElement>) => {
+              event.preventDefault();
+              event.stopPropagation();
+              const row = event.currentTarget.closest("[data-platform-row]");
+              if (row instanceof HTMLElement) drag?.grab(id, event.clientY, row);
+            },
+            style: { width: 28, cursor: mine ? "grabbing" : "grab", display: "flex", flexDirection: "column", gap: 3, touchAction: "none" },
+            "aria-label": "Reorder",
+          },
+          createElement(Grip),
+        ),
+        createElement(
+          Pressable,
+          {
+            onPress: () => {
+              if (moved.current > 8) {
+                moved.current = 0;
+                return;
+              }
+              if (drag?.openId === id) {
+                drag.setOpen(null);
+                return;
+              }
+              onOpen();
+            },
+            accessibilityRole: "button",
+            accessibilityLabel: name,
+            style: { flex: 1 },
+          },
+          createElement(Text, { style: display(18) }, name),
+        ),
+        createElement(Text, { style: { fontFamily: DISPLAY, fontSize: 22, color: RED } }, String(count)),
       ),
-      createElement(
-        Pressable,
-        { onPress: onOpen, accessibilityRole: "button", accessibilityLabel: name, style: { flex: 1 } },
-        createElement(Text, { style: display(18) }, name),
-      ),
-      createElement(Text, { style: { fontFamily: DISPLAY, fontSize: 22, color: RED } }, String(count)),
     ),
   );
 }

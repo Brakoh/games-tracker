@@ -22,7 +22,7 @@ export default function PlatformStep() {
     <Phone title="Add a game" showBack onBack={() => router.back()}>
       <View style={{ padding: 12, gap: 8 }}>
         <Text style={display(20)}>{game?.title ?? id}</Text>
-        <Text style={{ fontFamily: BODY, fontSize: 12, letterSpacing: 1.2, textTransform: "uppercase", color: INK }}>Choose a platform</Text>
+        <Text style={{ fontFamily: BODY, fontSize: 12, letterSpacing: 1.2, textTransform: "uppercase", color: INK }}>Choose a system</Text>
         {choices.map((platformId) => (
           <ListRow
             key={platformId}

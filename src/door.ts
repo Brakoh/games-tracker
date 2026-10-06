@@ -11,7 +11,7 @@ export function collectionDoor(path: "/covers" | "/switch-2") {
   }
   const base = process.env.EXPO_PUBLIC_API_BASE?.trim().replace(/\/$/, "");
   if (base) return `${base}${path}`;
-  if (Platform.OS === "web") return path;
   const host = Constants.expoConfig?.hostUri;
-  return host ? `http://${host}${path}` : path;
+  if (host) return `http://${host}${path}`;
+  return `${PUBLIC_DOOR}${path}`;
 }

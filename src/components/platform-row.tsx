@@ -3,7 +3,10 @@ import { Animated, PanResponder, Pressable, Text, View } from "react-native";
 
 import { GRAB_SCALE, insertionIndex, ROW_GAP, rowShift, SLIDE_MS } from "../platform-drag";
 import { CARD, DISPLAY, hard, INK, RED } from "../theme";
-import { display } from "./bits";
+import { display, TrashIcon } from "./bits";
+import { DitherEdge } from "./chrome";
+
+const SCREEN_EDGE = 12;
 
 type Drag = {
   id: string;
@@ -17,10 +20,14 @@ type Drag = {
 type DragApi = {
   drag: Drag | null;
   ids: string[];
+  openId: string | null;
+  setOpen: (id: string | null) => void;
   grab: (id: string, height: number) => void;
   move: (dy: number) => void;
   finish: () => void;
 };
+
+const ACTION = 76;
 
 const DragContext = createContext<DragApi | null>(null);
 
@@ -34,6 +41,7 @@ export function PlatformList({
   children: ReactNode;
 }) {
   const [drag, setDrag] = useState<Drag | null>(null);
+  const [openId, setOpenId] = useState<string | null>(null);
   const dragRef = useRef<Drag | null>(null);
   const idsRef = useRef(ids);
   const onReorderRef = useRef(onReorder);
@@ -70,8 +78,11 @@ export function PlatformList({
     }, SLIDE_MS + 30);
   }, []);
 
+  const setOpen = useCallback((id: string | null) => setOpenId(id), []);
+
   const grab = useCallback((id: string, height: number) => {
     if (dragRef.current) return;
+    setOpenId(null);
     const order = idsRef.current;
     const from = order.indexOf(id);
     if (from < 0) return;
@@ -86,7 +97,7 @@ export function PlatformList({
     };
   }, []);
 
-  const api = useMemo<DragApi>(() => ({ drag, ids, grab, move, finish }), [drag, ids, grab, move, finish]);
+  const api = useMemo<DragApi>(() => ({ drag, ids, openId, setOpen, grab, move, finish }), [drag, ids, openId, setOpen, grab, move, finish]);
   return <DragContext.Provider value={api}>{children}</DragContext.Provider>;
 }
 
@@ -96,6 +107,7 @@ export function PlatformRow({
   count,
   highlighted,
   onOpen,
+  onTurnOff,
 }: {
   id: string;
   name: string;
@@ -105,6 +117,7 @@ export function PlatformRow({
   afterId?: string;
   onOpen: () => void;
   onReorder: (fromId: string, toId: string) => void;
+  onTurnOff: () => void;
 }) {
   const api = useContext(DragContext);
   const height = useRef(0);
@@ -114,13 +127,63 @@ export function PlatformRow({
   const translate = mine && api?.drag ? api.drag.dy : shift;
   const scale = mine && api?.drag && !api.drag.settling ? GRAB_SCALE : 1;
   const settling = !!api?.drag?.settling;
+  const reveal = useRef(new Animated.Value(0)).current;
+  const openRef = useRef(false);
+  const [atEdge, setAtEdge] = useState(false);
+  const moved = useRef(0);
+  const apiRef = useRef(api);
+  apiRef.current = api;
+  const open = api?.openId === id;
+
+  useEffect(() => {
+    if (open) {
+      openRef.current = true;
+      return;
+    }
+    openRef.current = false;
+    setAtEdge(false);
+    Animated.timing(reveal, { toValue: 0, duration: SLIDE_MS, useNativeDriver: true }).start();
+  }, [open, reveal]);
+
   const pan = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
-      onPanResponderGrant: () => api?.grab(id, height.current),
-      onPanResponderMove: (_, gesture) => api?.move(gesture.dy),
-      onPanResponderRelease: () => api?.finish(),
-      onPanResponderTerminate: () => api?.finish(),
+      onPanResponderGrant: () => apiRef.current?.grab(id, height.current),
+      onPanResponderMove: (_, gesture) => apiRef.current?.move(gesture.dy),
+      onPanResponderRelease: () => apiRef.current?.finish(),
+      onPanResponderTerminate: () => apiRef.current?.finish(),
+    }),
+  ).current;
+
+  const swipe = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (_, gesture) => {
+        if (apiRef.current?.drag) return false;
+        const horizontal = Math.abs(gesture.dx) > 8 && Math.abs(gesture.dx) > Math.abs(gesture.dy);
+        if (!horizontal) return false;
+        return gesture.dx < 0 || openRef.current;
+      },
+      onPanResponderMove: (_, gesture) => {
+        const base = openRef.current ? -ACTION : 0;
+        const next = Math.min(0, Math.max(-ACTION, base + gesture.dx));
+        moved.current = Math.abs(gesture.dx);
+        reveal.setValue(next);
+        setAtEdge(next < 0);
+      },
+      onPanResponderRelease: (_, gesture) => {
+        const base = openRef.current ? -ACTION : 0;
+        const next = Math.min(0, Math.max(-ACTION, base + gesture.dx));
+        const should = next < -ACTION / 2;
+        openRef.current = should;
+        setAtEdge(should);
+        apiRef.current?.setOpen(should ? id : null);
+        Animated.timing(reveal, { toValue: should ? -ACTION : 0, duration: SLIDE_MS, useNativeDriver: true }).start();
+      },
+      onPanResponderTerminate: () => {
+        openRef.current = false;
+        setAtEdge(false);
+        apiRef.current?.setOpen(null);
+      },
     }),
   ).current;
 
@@ -130,27 +193,71 @@ export function PlatformRow({
         onLayout={(event) => {
           height.current = event.nativeEvent.layout.height;
         }}
-        style={{
-          marginHorizontal: 12,
-          marginTop: 10,
-          flexDirection: "row",
-          alignItems: "center",
-          gap: 10,
-          backgroundColor: highlighted ? "#E7E2D2" : CARD,
-          borderWidth: 3,
-          borderColor: INK,
-          ...hard,
-          paddingVertical: 12,
-          paddingHorizontal: 12,
-        }}
+        style={{ marginLeft: 12, marginRight: 8, marginTop: 10, overflow: "visible", paddingRight: 4, paddingBottom: 4 }}
       >
-        <View accessibilityLabel="Reorder" {...pan.panHandlers} style={{ width: 28, justifyContent: "center", gap: 3 }}>
-          <Grip />
-        </View>
-        <Pressable accessibilityRole="button" accessibilityLabel={name} onPress={onOpen} style={{ flex: 1 }}>
-          <Text style={display(18)}>{name}</Text>
+        {atEdge || open ? (
+          <View pointerEvents="none" style={{ position: "absolute", left: -SCREEN_EDGE, top: 0, bottom: 0, width: 28, zIndex: 6 }}>
+            <DitherEdge side="left" />
+          </View>
+        ) : null}
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Off"
+          onPress={onTurnOff}
+          style={{
+            position: "absolute",
+            top: 0,
+            right: 4,
+            bottom: 4,
+            width: ACTION,
+            backgroundColor: RED,
+            borderWidth: 3,
+            borderColor: INK,
+            alignItems: "center",
+            justifyContent: "center",
+            ...hard,
+          }}
+        >
+          <TrashIcon />
         </Pressable>
-        <Text style={{ fontFamily: DISPLAY, fontSize: 22, color: RED }}>{count}</Text>
+        <Animated.View style={{ transform: [{ translateX: reveal }] }} {...swipe.panHandlers}>
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 10,
+              backgroundColor: highlighted ? "#E7E2D2" : CARD,
+              borderWidth: 3,
+              borderColor: INK,
+              ...hard,
+              paddingVertical: 12,
+              paddingHorizontal: 12,
+            }}
+          >
+            <View accessibilityLabel="Reorder" {...pan.panHandlers} style={{ width: 28, justifyContent: "center", gap: 3 }}>
+              <Grip />
+            </View>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={name}
+              onPress={() => {
+                if (moved.current > 8) {
+                  moved.current = 0;
+                  return;
+                }
+                if (openRef.current) {
+                  api?.setOpen(null);
+                  return;
+                }
+                onOpen();
+              }}
+              style={{ flex: 1 }}
+            >
+              <Text style={display(18)}>{name}</Text>
+            </Pressable>
+            <Text style={{ fontFamily: DISPLAY, fontSize: 22, color: RED }}>{count}</Text>
+          </View>
+        </Animated.View>
       </View>
     </Slide>
   );
