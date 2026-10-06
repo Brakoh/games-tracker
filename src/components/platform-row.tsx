@@ -1,0 +1,201 @@
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { Animated, PanResponder, Pressable, Text, View } from "react-native";
+
+import { GRAB_SCALE, insertionIndex, ROW_GAP, rowShift, SLIDE_MS } from "../platform-drag";
+import { CARD, DISPLAY, hard, INK, RED } from "../theme";
+import { display } from "./bits";
+
+type Drag = {
+  id: string;
+  from: number;
+  to: number;
+  dy: number;
+  pitch: number;
+  settling: boolean;
+};
+
+type DragApi = {
+  drag: Drag | null;
+  ids: string[];
+  grab: (id: string, height: number) => void;
+  move: (dy: number) => void;
+  finish: () => void;
+};
+
+const DragContext = createContext<DragApi | null>(null);
+
+export function PlatformList({
+  ids,
+  onReorder,
+  children,
+}: {
+  ids: string[];
+  onReorder: (fromId: string, toId: string) => void;
+  children: ReactNode;
+}) {
+  const [drag, setDrag] = useState<Drag | null>(null);
+  const dragRef = useRef<Drag | null>(null);
+  const idsRef = useRef(ids);
+  const onReorderRef = useRef(onReorder);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  idsRef.current = ids;
+  onReorderRef.current = onReorder;
+
+  const move = useCallback((dy: number) => {
+    const current = dragRef.current;
+    if (!current || current.settling) return;
+    const to = insertionIndex(current.from, dy, current.pitch, idsRef.current.length);
+    if (dy === current.dy && to === current.to) return;
+    const next = { ...current, dy, to };
+    dragRef.current = next;
+    setDrag(next);
+  }, []);
+
+  const finish = useCallback(() => {
+    const current = dragRef.current;
+    if (!current || current.settling) return;
+    const to = insertionIndex(current.from, current.dy, current.pitch, idsRef.current.length);
+    const next = { ...current, to, dy: (to - current.from) * current.pitch, settling: true };
+    dragRef.current = next;
+    setDrag(next);
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = setTimeout(() => {
+      const latest = dragRef.current;
+      dragRef.current = null;
+      setDrag(null);
+      if (latest && latest.to !== latest.from) {
+        const order = idsRef.current;
+        onReorderRef.current(order[latest.from], order[latest.to]);
+      }
+    }, SLIDE_MS + 30);
+  }, []);
+
+  const grab = useCallback((id: string, height: number) => {
+    if (dragRef.current) return;
+    const order = idsRef.current;
+    const from = order.indexOf(id);
+    if (from < 0) return;
+    const next = { id, from, to: from, dy: 0, pitch: height + ROW_GAP, settling: false };
+    dragRef.current = next;
+    setDrag(next);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (timer.current) clearTimeout(timer.current);
+    };
+  }, []);
+
+  const api = useMemo<DragApi>(() => ({ drag, ids, grab, move, finish }), [drag, ids, grab, move, finish]);
+  return <DragContext.Provider value={api}>{children}</DragContext.Provider>;
+}
+
+export function PlatformRow({
+  id,
+  name,
+  count,
+  highlighted,
+  onOpen,
+}: {
+  id: string;
+  name: string;
+  count: number;
+  highlighted: boolean;
+  beforeId?: string;
+  afterId?: string;
+  onOpen: () => void;
+  onReorder: (fromId: string, toId: string) => void;
+}) {
+  const api = useContext(DragContext);
+  const height = useRef(0);
+  const index = api ? api.ids.indexOf(id) : -1;
+  const mine = api?.drag?.id === id;
+  const shift = api?.drag && index >= 0 ? rowShift(index, api.drag.from, api.drag.pitch, api.drag.dy) : 0;
+  const translate = mine && api?.drag ? api.drag.dy : shift;
+  const scale = mine && api?.drag && !api.drag.settling ? GRAB_SCALE : 1;
+  const settling = !!api?.drag?.settling;
+  const pan = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onPanResponderGrant: () => api?.grab(id, height.current),
+      onPanResponderMove: (_, gesture) => api?.move(gesture.dy),
+      onPanResponderRelease: () => api?.finish(),
+      onPanResponderTerminate: () => api?.finish(),
+    }),
+  ).current;
+
+  return (
+    <Slide translate={translate} scale={scale} immediate={!settling}>
+      <View
+        onLayout={(event) => {
+          height.current = event.nativeEvent.layout.height;
+        }}
+        style={{
+          marginHorizontal: 12,
+          marginTop: 10,
+          flexDirection: "row",
+          alignItems: "center",
+          gap: 10,
+          backgroundColor: highlighted ? "#E7E2D2" : CARD,
+          borderWidth: 3,
+          borderColor: INK,
+          ...hard,
+          paddingVertical: 12,
+          paddingHorizontal: 12,
+        }}
+      >
+        <View accessibilityLabel="Reorder" {...pan.panHandlers} style={{ width: 28, justifyContent: "center", gap: 3 }}>
+          <Grip />
+        </View>
+        <Pressable accessibilityRole="button" accessibilityLabel={name} onPress={onOpen} style={{ flex: 1 }}>
+          <Text style={display(18)}>{name}</Text>
+        </Pressable>
+        <Text style={{ fontFamily: DISPLAY, fontSize: 22, color: RED }}>{count}</Text>
+      </View>
+    </Slide>
+  );
+}
+
+function Slide({
+  translate,
+  scale,
+  immediate,
+  children,
+}: {
+  translate: number;
+  scale: number;
+  immediate: boolean;
+  children: ReactNode;
+}) {
+  const shift = useRef(new Animated.Value(0)).current;
+  const zoom = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    if (immediate) {
+      shift.stopAnimation();
+      shift.setValue(translate);
+      return;
+    }
+    Animated.timing(shift, { toValue: translate, duration: SLIDE_MS, useNativeDriver: true }).start();
+  }, [immediate, shift, translate]);
+
+  useEffect(() => {
+    Animated.timing(zoom, { toValue: scale, duration: SLIDE_MS, useNativeDriver: true }).start();
+  }, [scale, zoom]);
+
+  return (
+    <Animated.View style={{ zIndex: scale > 1 ? 2 : 0, transform: [{ translateY: shift }, { scale: zoom }] }}>
+      {children}
+    </Animated.View>
+  );
+}
+
+function Grip() {
+  return (
+    <View style={{ gap: 3 }}>
+      {[0, 1, 2].map((line) => (
+        <View key={line} style={{ height: 2, width: 16, backgroundColor: INK, borderRadius: 1 }} />
+      ))}
+    </View>
+  );
+}
