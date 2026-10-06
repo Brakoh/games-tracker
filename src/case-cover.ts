@@ -1,6 +1,6 @@
-import Constants from "expo-constants";
 import { useQuery } from "@tanstack/react-query";
-import { Platform } from "react-native";
+
+import { collectionDoor } from "./door";
 
 type CoverResponse = {
   configured?: boolean;
@@ -23,9 +23,7 @@ let queue: Job[] = [];
 let flushTimer: ReturnType<typeof setTimeout> | null = null;
 
 function endpoint() {
-  if (Platform.OS === "web") return "/covers";
-  const host = Constants.expoConfig?.hostUri;
-  return host ? `http://${host}/covers` : "/covers";
+  return collectionDoor("/covers");
 }
 
 async function flush() {
@@ -78,7 +76,7 @@ export function useCaseCover(gameId: string, platformId: string, title: string) 
     queryKey: ["case-cover", gameId, platformId, title],
     queryFn: () => loadCaseCover(`${gameId}:${platformId}`, title, platformId),
     staleTime: Infinity,
-    retry: false,
+    retry: 2,
     enabled: title.trim().length > 0,
   });
   return query.data || undefined;

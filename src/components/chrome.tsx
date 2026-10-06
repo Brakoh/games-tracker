@@ -3,6 +3,7 @@ import { Image, Platform, Pressable, ScrollView, Text, useWindowDimensions, View
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useCaseCover } from "../case-cover";
+import { useCollection } from "../store";
 import { BODY, CARD, DISPLAY, hard, hardSm, INK, RED } from "../theme";
 import type { Copy, Format, SortMode } from "../types";
 import { SkewTag } from "./bits";
@@ -152,6 +153,10 @@ export function CaseFace({
   );
 }
 
+function igdbCover(url?: string) {
+  return url?.startsWith("https://images.igdb.com/") ? url : undefined;
+}
+
 export function CaseTile({
   copy,
   title,
@@ -167,7 +172,8 @@ export function CaseTile({
   onOpen: () => void;
   onToggleFinished: () => void;
 }) {
-  const front = useCaseCover(copy.gameId, copy.platformId, title);
+  const stored = useCollection((state) => state.catalog[copy.gameId]?.cover);
+  const front = useCaseCover(copy.gameId, copy.platformId, title) || igdbCover(stored);
   return (
     <Pressable onPress={onOpen} accessibilityRole="button" accessibilityLabel={title} style={{ width: width ?? "100%", gap: 6 }}>
       <CaseFace platformId={copy.platformId} cover={front} finished={copy.finished} onToggleFinished={onToggleFinished} />

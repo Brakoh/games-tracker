@@ -25,7 +25,7 @@ export default function GameScreen() {
   const title = catalog[gameId]?.title ?? gameId;
   const platformName = platformById(list, platformId)?.name ?? platformId;
   const game = catalog[gameId] ?? { id: gameId, title, platforms: [platformId] };
-  const front = useCaseCover(gameId, platformId, title);
+  const front = useCaseCover(gameId, platformId, title) || (game.cover?.startsWith("https://images.igdb.com/") ? game.cover : undefined);
 
   if (!copy) {
     return (

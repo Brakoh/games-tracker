@@ -42,9 +42,24 @@ type IgdbGame = {
 };
 
 let token: { value: string; expires: number } | null = null;
+const override: { id?: string; secret?: string } = {};
+
+export function setIgdbCredentials(id: string, secret: string) {
+  if (override.id === id && override.secret === secret) return;
+  override.id = id;
+  override.secret = secret;
+  token = null;
+}
+
+function credential(name: "TWITCH_CLIENT_ID" | "TWITCH_CLIENT_SECRET") {
+  if (name === "TWITCH_CLIENT_ID" && override.id) return override.id;
+  if (name === "TWITCH_CLIENT_SECRET" && override.secret) return override.secret;
+  const env = typeof process !== "undefined" ? process.env : undefined;
+  return env?.[name];
+}
 
 export function igdbConfigured() {
-  return Boolean(process.env.TWITCH_CLIENT_ID && process.env.TWITCH_CLIENT_SECRET);
+  return Boolean(credential("TWITCH_CLIENT_ID") && credential("TWITCH_CLIENT_SECRET"));
 }
 
 function quote(value: string) {
@@ -53,8 +68,8 @@ function quote(value: string) {
 
 async function accessToken() {
   if (token && token.expires > Date.now()) return token.value;
-  const clientId = process.env.TWITCH_CLIENT_ID;
-  const clientSecret = process.env.TWITCH_CLIENT_SECRET;
+  const clientId = credential("TWITCH_CLIENT_ID");
+  const clientSecret = credential("TWITCH_CLIENT_SECRET");
   if (!clientId || !clientSecret) return null;
   const response = await fetch("https://id.twitch.tv/oauth2/token", {
     method: "POST",
@@ -73,7 +88,7 @@ async function accessToken() {
 }
 
 async function igdb(path: string, body: string) {
-  const clientId = process.env.TWITCH_CLIENT_ID;
+  const clientId = credential("TWITCH_CLIENT_ID");
   const access = await accessToken();
   if (!clientId || !access) throw new Error("token");
   const response = await fetch(`https://api.igdb.com/v4/${path}`, {

@@ -1,6 +1,4 @@
-import Constants from "expo-constants";
-import { Platform } from "react-native";
-
+import { collectionDoor } from "./door";
 import { nameMatches } from "./name-match";
 import { platformByRawgId, platformsFor } from "./platforms";
 import type { CatalogGame } from "./types";
@@ -24,24 +22,28 @@ export function rawgKey() {
 }
 
 function switch2Endpoint() {
-  if (Platform.OS === "web") return "/switch-2";
-  const host = Constants.expoConfig?.hostUri;
-  return host ? `http://${host}/switch-2` : "/switch-2";
+  return collectionDoor("/switch-2");
 }
 
 async function fetchSwitch2Page(query: string, page: number) {
-  try {
-    const response = await fetch(switch2Endpoint(), {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ query, page }),
-    });
-    if (!response.ok) return { games: [] as CatalogGame[], nextPage: undefined as number | undefined };
-    const body = (await response.json()) as { games?: CatalogGame[]; nextPage?: number };
-    return { games: body.games ?? [], nextPage: body.nextPage };
-  } catch {
-    return { games: [] as CatalogGame[], nextPage: undefined as number | undefined };
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      const response = await fetch(switch2Endpoint(), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query, page }),
+      });
+      if (!response.ok) throw new Error("switch-2");
+      const body = (await response.json()) as { games?: CatalogGame[]; nextPage?: number; configured?: boolean };
+      if (body.configured === false) return { games: [] as CatalogGame[], nextPage: undefined as number | undefined };
+      if (!Array.isArray(body.games)) throw new Error("switch-2");
+      return { games: body.games, nextPage: body.nextPage };
+    } catch {
+      if (attempt === 2) return { games: [] as CatalogGame[], nextPage: undefined as number | undefined };
+      await new Promise((resolve) => setTimeout(resolve, 500));
+    }
   }
+  return { games: [] as CatalogGame[], nextPage: undefined as number | undefined };
 }
 
 export async function fetchCatalogPage(input: {
