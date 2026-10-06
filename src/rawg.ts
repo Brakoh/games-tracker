@@ -1,4 +1,3 @@
-import { collectionDoor } from "./door";
 import { nameMatches } from "./name-match";
 import { platformByRawgId, platformsFor } from "./platforms";
 import type { CatalogGame } from "./types";
@@ -16,34 +15,10 @@ type RawgGame = {
 };
 
 const PAGE_SIZE = 40;
+const SWITCH_RAWG_ID = 7;
 
 export function rawgKey() {
   return process.env.EXPO_PUBLIC_RAWG_API_KEY?.trim() ?? "";
-}
-
-function switch2Endpoint() {
-  return collectionDoor("/switch-2");
-}
-
-async function fetchSwitch2Page(query: string, page: number) {
-  for (let attempt = 0; attempt < 3; attempt += 1) {
-    try {
-      const response = await fetch(switch2Endpoint(), {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query, page }),
-      });
-      if (!response.ok) throw new Error("switch-2");
-      const body = (await response.json()) as { games?: CatalogGame[]; nextPage?: number; configured?: boolean };
-      if (body.configured === false) return { games: [] as CatalogGame[], nextPage: undefined as number | undefined };
-      if (!Array.isArray(body.games)) throw new Error("switch-2");
-      return { games: body.games, nextPage: body.nextPage };
-    } catch {
-      if (attempt === 2) return { games: [] as CatalogGame[], nextPage: undefined as number | undefined };
-      await new Promise((resolve) => setTimeout(resolve, 500));
-    }
-  }
-  return { games: [] as CatalogGame[], nextPage: undefined as number | undefined };
 }
 
 export async function fetchCatalogPage(input: {
@@ -55,16 +30,21 @@ export async function fetchCatalogPage(input: {
 }) {
   const list = platformsFor(input.switch2RawgId);
   const allowed = new Set(input.allowedPlatformIds);
-  const rawgIds = list.filter((platform) => allowed.has(platform.id) && platform.rawgId > 0).map((platform) => platform.rawgId);
+  const rawgIds = [
+    ...new Set(
+      list
+        .filter((platform) => allowed.has(platform.id) && platform.rawgId > 0)
+        .map((platform) => platform.rawgId)
+        .concat(allowed.has("switch-2") ? [SWITCH_RAWG_ID] : []),
+    ),
+  ];
   const local = filterLocal(input.localGames, input.query, allowed);
   const key = rawgKey();
-  const switch2 = allowed.has("switch-2") ? await fetchSwitch2Page(input.query, input.page) : { games: [] as CatalogGame[], nextPage: undefined as number | undefined };
   if (!key || rawgIds.length === 0) {
-    const games = [...switch2.games, ...(input.page === 1 ? local : [])].filter(
+    const games = (input.page === 1 ? local : []).filter(
       (game, index, all) => all.findIndex((item) => item.id === game.id) === index,
     );
-    games.sort((a, b) => a.title.localeCompare(b.title));
-    return { games, nextPage: switch2.nextPage };
+    return { games, nextPage: undefined as number | undefined };
   }
 
   try {
@@ -89,7 +69,7 @@ export async function fetchCatalogPage(input: {
       if (!response.ok) throw new Error("catalog");
       const body = (await response.json()) as RawgList<RawgGame>;
       for (const game of body.results) {
-        const catalogGame = toCatalogGame(game, list);
+        const catalogGame = toCatalogGame(game, list, allowed);
         if (!catalogGame || !nameMatches(catalogGame.title, query)) continue;
         if (games.some((item) => item.id === catalogGame.id)) continue;
         games.push(catalogGame);
@@ -98,14 +78,13 @@ export async function fetchCatalogPage(input: {
       nextPage = body.next ? page : undefined;
       if (!body.next) break;
     }
-    const merged = [...games, ...switch2.games, ...(input.page === 1 ? local : [])].filter(
+    const merged = [...games, ...(input.page === 1 ? local : [])].filter(
       (game, index, all) => all.findIndex((item) => item.id === game.id) === index,
     );
     merged.sort((a, b) => a.title.localeCompare(b.title));
-    return { games: merged, nextPage: nextPage ?? switch2.nextPage };
+    return { games: merged, nextPage };
   } catch {
-    const fallback = [...switch2.games, ...(input.page === 1 ? local : [])];
-    return { games: fallback, nextPage: switch2.nextPage };
+    return { games: input.page === 1 ? local : [], nextPage: undefined as number | undefined };
   }
 }
 
@@ -115,11 +94,15 @@ function filterLocal(games: CatalogGame[], query: string, allowed: Set<string>) 
     .sort((a, b) => a.title.localeCompare(b.title));
 }
 
-function toCatalogGame(game: RawgGame, list: ReturnType<typeof platformsFor>): CatalogGame | null {
-  const platforms = (game.platforms ?? [])
+function toCatalogGame(game: RawgGame, list: ReturnType<typeof platformsFor>, allowed: Set<string>): CatalogGame | null {
+  const rawgPlatforms = game.platforms ?? [];
+  const platforms = rawgPlatforms
     .map((entry) => platformByRawgId(list, entry.platform.id)?.id)
     .filter((id): id is string => !!id);
   const unique = [...new Set(platforms)];
+  if (allowed.has("switch-2") && rawgPlatforms.some((entry) => entry.platform.id === SWITCH_RAWG_ID) && !unique.includes("switch-2")) {
+    unique.push("switch-2");
+  }
   if (!game.name || unique.length === 0) return null;
   return {
     id: String(game.id),

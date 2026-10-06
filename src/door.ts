@@ -1,7 +1,7 @@
 import Constants from "expo-constants";
 import { Platform } from "react-native";
 
-const PUBLIC_DOOR = "https://collection-igdb.fire-bladder.workers.dev";
+const PUBLIC_DOOR = "https://collection-igdb.brakoh-collection.workers.dev";
 
 export function collectionDoor(path: "/covers" | "/switch-2") {
   if (Platform.OS === "web" && typeof location !== "undefined") {
