@@ -33,7 +33,16 @@ function asCoverRequests(value: unknown): CoverRequest[] {
 
 export default {
   async fetch(request: Request, env: Env) {
-    if (request.method === "OPTIONS") return json(null, 204);
+    if (request.method === "OPTIONS") {
+      return new Response(null, {
+        status: 204,
+        headers: {
+          "Access-Control-Allow-Origin": "*",
+          "Access-Control-Allow-Methods": "POST, OPTIONS",
+          "Access-Control-Allow-Headers": "Content-Type",
+        },
+      });
+    }
     if (env.TWITCH_CLIENT_ID && env.TWITCH_CLIENT_SECRET) setIgdbCredentials(env.TWITCH_CLIENT_ID, env.TWITCH_CLIENT_SECRET);
     const path = new URL(request.url).pathname;
     if (request.method !== "POST") return json({ error: "method" }, 405);
