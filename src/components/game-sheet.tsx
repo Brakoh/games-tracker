@@ -67,35 +67,19 @@ export function GameSheet({
 
   return (
     <View style={{ flex: 1 }}>
-      {banner ? (
-        <Animated.View
-          pointerEvents="none"
+      {bannerImage ? (
+        <Animated.Image
+          source={{ uri: bannerImage }}
+          resizeMode="cover"
           style={{
             position: "absolute",
             top: 0,
             left: 0,
-            right: 0,
+            width: "100%",
             height: BANNER_HEIGHT,
-            transform: [
-              { translateY: scrollY.interpolate({ inputRange: [0, BANNER_HEIGHT], outputRange: [0, -BANNER_HEIGHT], extrapolateLeft: "clamp" }) },
-            ],
+            opacity: scrollY.interpolate({ inputRange: [-1, 0], outputRange: [1, 0], extrapolate: "clamp" }),
           }}
-        >
-          {bannerImage ? (
-            <Animated.Image
-              source={{ uri: bannerImage }}
-              resizeMode="cover"
-              style={{
-                width: "100%",
-                height: BANNER_HEIGHT,
-                transform: [{ translateY: pull([BANNER_HEIGHT / 2, 0]) }, { scale: pull([2, 1]) }],
-              }}
-            />
-          ) : null}
-          <Animated.View style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: BANNER_HEIGHT, transform: [{ translateY: pull([BANNER_HEIGHT, 0]) }] }}>
-            <BannerDither />
-          </Animated.View>
-        </Animated.View>
+        />
       ) : null}
       <Animated.ScrollView
         ref={scrollRef}
@@ -104,7 +88,25 @@ export function GameSheet({
         scrollEventThrottle={16}
         onScroll={Platform.OS === "web" ? undefined : Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], { useNativeDriver: true })}
       >
-        {banner ? <View style={{ height: BANNER_HEIGHT }} /> : null}
+        {banner ? (
+          <View style={{ height: BANNER_HEIGHT }}>
+            {bannerImage ? (
+              <Animated.Image
+                source={{ uri: bannerImage }}
+                resizeMode="cover"
+                style={{
+                  position: "absolute",
+                  top: 0,
+                  left: 0,
+                  width: "100%",
+                  height: BANNER_HEIGHT,
+                  transform: [{ translateY: pull([-BANNER_HEIGHT / 2, 0]) }, { scale: pull([2, 1]) }],
+                }}
+              />
+            ) : null}
+            <BannerDither />
+          </View>
+        ) : null}
         <View style={{ paddingHorizontal: 16, paddingBottom: 16, paddingTop: banner ? 0 : topSpace, gap: 12 }}>
           <View style={{ flexDirection: "row", gap: 14, alignItems: "flex-start", marginTop: banner ? -OVERLAP : 0 }}>
             <View style={{ flex: 1, gap: 6, paddingLeft: 6, paddingTop: banner ? OVERLAP - 8 : 0 }}>
