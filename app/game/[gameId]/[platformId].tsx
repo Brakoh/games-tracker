@@ -29,6 +29,7 @@ export default function GameScreen() {
   const framed = useFramed();
   const [menu, setMenu] = useState(false);
   const [confirming, setConfirming] = useState(false);
+  const [added, setAdded] = useState(false);
   const copy = findCopy(copies, gameId, platformId);
   const list = platformsFor(switch2RawgId);
   const title = catalog[gameId]?.title ?? params.title ?? gameId;
@@ -37,7 +38,8 @@ export default function GameScreen() {
   const front = useCaseCover(gameId, platformId, title) || (game.cover?.startsWith("https://images.igdb.com/") ? game.cover : undefined);
   const top = framed ? 12 : Math.max(insets.top, 12);
   const back = () => {
-    if (params.from === "featured" && router.canGoBack()) router.back();
+    if (added) router.replace("/");
+    else if (params.from === "featured" && router.canGoBack()) router.back();
     else router.replace(params.from === "home" ? "/" : `/shelf/${platformId}`);
   };
   const openFeatured = (featured: FeaturedGame) => {
@@ -51,7 +53,20 @@ export default function GameScreen() {
   };
 
   return (
-    <Phone bare footer={copy || !params.title ? null : <AddButton label="Add to library" onPress={() => addCopy(game, platformId)} />}>
+    <Phone
+      bare
+      footer={
+        copy || !params.title ? null : (
+          <AddButton
+            label="Add to library"
+            onPress={() => {
+              addCopy(game, platformId);
+              setAdded(true);
+            }}
+          />
+        )
+      }
+    >
       {copy || params.title ? (
         <GameSheet
           title={title}

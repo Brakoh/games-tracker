@@ -105,12 +105,20 @@ async function igdb(path: string, body: string) {
   return response.json();
 }
 
+const SWITCH_FAMILY = [IGDB_PLATFORM.switch, IGDB_PLATFORM["switch-2"]];
+
+function igdbPlatforms(platformId: string) {
+  const platform = IGDB_PLATFORM[platformId];
+  if (!platform) return [];
+  return SWITCH_FAMILY.includes(platform) ? SWITCH_FAMILY : [platform];
+}
+
 async function gamesFor(item: CoverRequest) {
-  const platform = IGDB_PLATFORM[item.platformId];
+  const platforms = igdbPlatforms(item.platformId).join(",");
   const title = item.title.replace(/[\r\n]+/g, " ").trim().slice(0, 160);
   const payload = (await igdb(
     "games",
-    [`search ${quote(title)};`, "fields name,cover.image_id;", `where platforms = (${platform}) & cover != null;`, "limit 8;"].join(" "),
+    [`search ${quote(title)};`, "fields name,cover.image_id;", `where platforms = (${platforms}) & cover != null;`, "limit 8;"].join(" "),
   )) as IgdbGame[];
   return coverImage(item.title, Array.isArray(payload) ? payload : []);
 }
@@ -159,15 +167,15 @@ type IgdbDetails = {
 };
 
 export async function lookupDetails(item: { title: string; platformId: string }): Promise<GameDetails | null> {
-  const platform = IGDB_PLATFORM[item.platformId];
+  const platforms = igdbPlatforms(item.platformId);
   const title = item.title.replace(/[\r\n]+/g, " ").trim().slice(0, 160);
-  if (!platform || !title) return null;
+  if (!platforms.length || !title) return null;
   const payload = (await igdb(
     "games",
     [
       `search ${quote(title)};`,
       "fields name,first_release_date,summary,platforms.name,genres.name,involved_companies.developer,involved_companies.publisher,involved_companies.company.name,screenshots.image_id,similar_games.name,similar_games.platforms,similar_games.cover.image_id;",
-      `where platforms = (${platform});`,
+      `where platforms = (${platforms.join(",")});`,
       "limit 8;",
     ].join(" "),
   )) as IgdbDetails[];
@@ -183,7 +191,7 @@ export async function lookupDetails(item: { title: string; platformId: string })
     summary: game.summary?.trim() || undefined,
     related: (game.similar_games ?? [])
       .flatMap((similar) =>
-        similar.id && similar.name && similar.cover?.image_id && similar.platforms?.includes(platform)
+        similar.id && similar.name && similar.cover?.image_id && similar.platforms?.some((id) => platforms.includes(id))
           ? [
               {
                 id: `igdb-${similar.id}`,
