@@ -103,14 +103,24 @@ export function SearchField({
   onChange,
   placeholder,
   labeled = true,
+  divider = "below",
 }: {
   value: string;
   onChange: (value: string) => void;
   placeholder: string;
   labeled?: boolean;
+  divider?: "above" | "below";
 }) {
   return (
-    <View className="bg-paper px-3 pb-3 pt-3" style={{ borderBottomWidth: 3, borderBottomColor: INK }}>
+    <View
+      className="bg-paper px-3 pb-3"
+      style={
+        divider === "above"
+          ? { paddingTop: 12 }
+          : { paddingTop: 12, borderBottomWidth: 3, borderBottomColor: INK }
+      }
+    >
+      {divider === "above" ? <View style={{ height: 1, backgroundColor: INK, marginBottom: 12 }} /> : null}
       {labeled ? <Text style={kicker}>Search</Text> : null}
       <TextInput
         value={value}
@@ -142,11 +152,11 @@ function sharpLogo(uri: string) {
   return uri.replace("/t_logo_med/", "/t_1080p/");
 }
 
-export function ConsoleLogo({ uri, width = LOGO_W, height = LOGO_H }: { uri?: string; width?: number; height?: number }) {
+export function ConsoleLogo({ uri, width = LOGO_W, height = LOGO_H, align = "center" }: { uri?: string; width?: number; height?: number; align?: "center" | "start" }) {
   if (uri === WINDOWS_LOGO) {
-    const size = height;
+    const size = Math.min(width, height);
     return (
-      <View style={{ width, height, alignItems: "center", justifyContent: "center" }}>
+      <View style={{ width, height, alignItems: align === "start" ? "flex-start" : "center", justifyContent: "center" }}>
         <SvgXml xml={WINDOWS_XML} width={size} height={size} />
       </View>
     );
@@ -218,23 +228,56 @@ function RemoteLogo({ uri, width, height }: { uri?: string; width: number; heigh
   return <Image accessible={false} source={{ uri: sharpLogo(uri) }} resizeMode="contain" style={{ width, height }} />;
 }
 
+const STAR = "★";
+const STAR_SIZE = 28;
+
 export function ActionStar({ crossed }: { crossed?: boolean }) {
   return (
     <View style={{ width: 32, height: 32, alignItems: "center", justifyContent: "center" }}>
-      <Text style={{ color: "#FFFFFF", fontSize: 28, lineHeight: 32 }}>★</Text>
+      {crossed
+        ? [
+            [-1, 0],
+            [1, 0],
+            [0, -1],
+            [0, 1],
+          ].map(([dx, dy]) => <StarGlyph key={`${dx}${dy}`} color={INK} dx={dx} dy={dy} />)
+        : null}
+      <StarGlyph color="#FFFFFF" />
       {crossed ? (
         <View
           pointerEvents="none"
           style={{
             position: "absolute",
-            width: 26,
-            height: 3,
-            backgroundColor: "#FFFFFF",
+            width: 28,
+            height: 5,
+            backgroundColor: INK,
+            alignItems: "center",
+            justifyContent: "center",
             transform: [{ rotate: "-40deg" }],
           }}
-        />
+        >
+          <View style={{ width: 26, height: 3, backgroundColor: "#FFFFFF" }} />
+        </View>
       ) : null}
     </View>
+  );
+}
+
+function StarGlyph({ color, dx = 0, dy = 0 }: { color: string; dx?: number; dy?: number }) {
+  return (
+    <Text
+      style={{
+        position: "absolute",
+        width: 32,
+        textAlign: "center",
+        color,
+        fontSize: STAR_SIZE,
+        lineHeight: 32,
+        transform: [{ translateX: dx }, { translateY: dy }],
+      }}
+    >
+      {STAR}
+    </Text>
   );
 }
 

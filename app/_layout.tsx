@@ -4,7 +4,7 @@ import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/reac
 import { useEffect } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
-import { View } from "react-native";
+import { Platform, View } from "react-native";
 
 import { pruneCovers } from "../src/cover-cache";
 import { useCollection, useHydrated } from "../src/store";
@@ -38,9 +38,24 @@ function CoverJanitor() {
   return null;
 }
 
+function useTouchFullscreen() {
+  useEffect(() => {
+    if (Platform.OS !== "web" || typeof document === "undefined") return;
+    const root = document.documentElement;
+    if (!root.requestFullscreen || !window.matchMedia("(pointer: coarse)").matches) return;
+    const enter = () => {
+      if (document.fullscreenElement || window.matchMedia("(display-mode: fullscreen)").matches) return;
+      root.requestFullscreen({ navigationUI: "hide" }).catch(() => {});
+    };
+    document.addEventListener("pointerup", enter);
+    return () => document.removeEventListener("pointerup", enter);
+  }, []);
+}
+
 export default function RootLayout() {
   const [fontsLoaded] = useFonts({ Anton_400Regular });
   const hydrated = useHydrated();
+  useTouchFullscreen();
 
   if (!fontsLoaded || !hydrated) {
     return <View style={{ flex: 1, backgroundColor: PAPER }} />;

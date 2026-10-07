@@ -36,8 +36,6 @@ export const BASE_PLATFORMS: PlatformDef[] = [
   { id: "xboxone", name: "Xbox One", rawgId: 1, featured: false, case: blu, logo: igdbLogo("pl6a") },
 ];
 
-const FEATURED_ORDER = ["ps5", "xbox-series", "switch", "pc"];
-
 export function isSwitch(id: string) {
   return id === "switch" || id === "switch-2";
 }
@@ -82,17 +80,28 @@ export function platformsFor(_switch2RawgId?: number | null): PlatformDef[] {
   return BASE_PLATFORMS;
 }
 
-export function featuredPlatforms(list: PlatformDef[]) {
-  return FEATURED_ORDER.map((id) => list.find((platform) => platform.id === id)).filter(
-    (platform): platform is PlatformDef => !!platform,
-  );
+const BRANDS: { label: string; ids: string[] }[] = [
+  { label: "nintendo", ids: ["switch", "wiiu", "n3ds", "wii", "nds", "gc", "gba", "n64", "snes", "gb"] },
+  { label: "sony", ids: ["ps5", "ps4", "vita", "ps3", "psp", "ps2", "ps1"] },
+  { label: "microsoft", ids: ["xbox-series", "xboxone", "xbox360", "xbox", "pc"] },
+  { label: "sega", ids: ["dreamcast", "genesis"] },
+];
+
+const NEXT_GEN = ["switch", "ps5", "xbox-series", "pc"];
+
+function platformsIn(list: PlatformDef[], ids: string[]) {
+  return ids.map((id) => list.find((platform) => platform.id === id)).filter((platform): platform is PlatformDef => !!platform);
 }
 
-export function otherPlatforms(list: PlatformDef[]) {
-  const featured = new Set(featuredPlatforms(list).map((platform) => platform.id));
-  return list
-    .filter((platform) => !featured.has(platform.id) && platform.id !== "switch-2")
-    .sort((a, b) => a.name.localeCompare(b.name));
+export function nextGenPlatforms(list: PlatformDef[]) {
+  return platformsIn(list, NEXT_GEN);
+}
+
+export function platformGroups(list: PlatformDef[]) {
+  return BRANDS.map((brand) => ({
+    label: brand.label,
+    platforms: platformsIn(list, brand.ids),
+  })).filter((group) => group.platforms.length > 0);
 }
 
 export function platformById(list: PlatformDef[], id: string) {

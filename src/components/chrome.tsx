@@ -9,6 +9,13 @@ import type { Copy, Format, SortMode } from "../types";
 import { SkewTag } from "./bits";
 import { PressShade, Tap } from "./tap";
 
+const DESKTOP = Platform.OS === "web" && typeof window !== "undefined" && window.matchMedia?.("(hover: hover) and (pointer: fine)").matches;
+
+export function useFramed() {
+  const { width } = useWindowDimensions();
+  return DESKTOP && width >= 760;
+}
+
 export function Phone({
   title,
   kicker = "Collection",
@@ -28,15 +35,15 @@ export function Phone({
   footer?: React.ReactNode;
   children: React.ReactNode;
 }) {
-  const { width, height } = useWindowDimensions();
+  const { height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
-  const framed = width >= 760;
+  const framed = useFramed();
   return (
     <View className="flex-1 items-center bg-paper" style={{ paddingTop: framed ? 24 : 0, paddingBottom: framed ? 24 : 0 }}>
       <View
         className="w-full flex-1 overflow-hidden bg-paper"
         style={{
-          maxWidth: 420,
+          maxWidth: framed ? 420 : undefined,
           borderWidth: framed ? 4 : 0,
           borderColor: INK,
           boxShadow: framed ? "6px 6px 0 0 #0C0B08" : undefined,
@@ -173,6 +180,7 @@ export function CaseTile({
 
 const DITHER_FADE = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABwAAAAICAYAAADqSp8ZAAAAUUlEQVR4nGNkIAC+fnr8n5tPlhGdj4/GZx4jPkliASmWM5FiKDY+uT6lCkB2BDoNwwR9iM9n6DSyz9BpqgJ8jiDbclJ8CqOxYQr9ht1R+CwHAFUHyzha+0AsAAAAAElFTkSuQmCC";
 const DITHER_BOTTOM = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAgAAACMCAYAAABBLuhFAAAAk0lEQVR42u2V3QqAMAhG9/6v2RsEXRcEg2Bq/ix1ZDBi5b6O58Jam3Yd+3ZS+/eT2D1NAtmiiIF8GMRw70UMopdODPyEDAxLJPSVqYsnU5QHPQNk1JsBMhrtwc7AT5jHAK1isCRkYPhBwjCGHBio4VEMGgb09xzoYfhEgIc1GbBRGOmBn/Cdh2KwFmTw4NBmFSgLLmgAlG22Px6yAAAAAElFTkSuQmCC";
+const DITHER_FADE_DOWN = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAgAAAAcCAYAAABcSP4GAAAARElEQVR42mP4+unxf3yYAasgAwMDXgU4TYDpRKaJMwGbTgwT0E2DKyJoAj5J0k3AyifKBLyAeibg4hMPyDeJem4Y3gAArL0YKueFXAkAAAAASUVORK5CYII=";
 const DITHER_WIDTH = 28;
 const DITHER_BOTTOM_HEIGHT = 140;
 
@@ -203,6 +211,26 @@ export function DitherEdge({ side }: { side: "left" | "right" }) {
         />
       ) : (
         <Image pointerEvents="none" source={{ uri: DITHER_FADE }} resizeMode="repeat" style={{ width: "100%", height: "100%" }} />
+      )}
+    </View>
+  );
+}
+
+export function TopDither() {
+  return (
+    <View pointerEvents="none" style={{ position: "absolute", left: 0, right: 0, top: "100%", height: DITHER_WIDTH, opacity: 0.72 }}>
+      {Platform.OS === "web" ? (
+        <View
+          style={{
+            width: "100%",
+            height: "100%",
+            backgroundImage: `url("${DITHER_FADE_DOWN}")`,
+            backgroundRepeat: "repeat",
+            backgroundSize: `8px ${DITHER_WIDTH}px`,
+          } as ViewStyle}
+        />
+      ) : (
+        <Image source={{ uri: DITHER_FADE_DOWN }} resizeMode="repeat" style={{ width: "100%", height: "100%" }} />
       )}
     </View>
   );
@@ -241,8 +269,7 @@ export function CaseRow({ children }: { children: React.ReactNode }) {
 
 export function StickyAdd({ onPress }: { onPress: () => void }) {
   const insets = useSafeAreaInsets();
-  const { width } = useWindowDimensions();
-  const framed = width >= 760;
+  const framed = useFramed();
   return (
     <Tap
       accessibilityLabel="Add a game"
@@ -293,8 +320,7 @@ export function BottomDither() {
 
 export function CornerAction({ label, onPress }: { label: string; onPress: () => void }) {
   const insets = useSafeAreaInsets();
-  const { width } = useWindowDimensions();
-  const framed = width >= 760;
+  const framed = useFramed();
   return (
     <Tap
       accessibilityLabel={label}
