@@ -60,101 +60,101 @@ export function GameSheet({
     { label: "Genre", value: info?.genres.length ? info.genres.join(", ") : undefined },
   ].filter((fact): fact is { label: string; value: string } => Boolean(fact.value));
 
+  const pull = (outputRange: number[]) =>
+    scrollY.interpolate({ inputRange: [-BANNER_HEIGHT, 0], outputRange, extrapolateLeft: "extend", extrapolateRight: "clamp" });
+
   return (
-    <Animated.ScrollView
-      showsVerticalScrollIndicator={false}
-      contentContainerStyle={{ paddingBottom: bottomSpace }}
-      scrollEventThrottle={16}
-      onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], { useNativeDriver: Platform.OS !== "web" })}
-    >
+    <View style={{ flex: 1 }}>
       {banner ? (
-        <View style={{ height: BANNER_HEIGHT }}>
+        <Animated.View
+          pointerEvents="none"
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            right: 0,
+            height: BANNER_HEIGHT,
+            transform: [
+              { translateY: scrollY.interpolate({ inputRange: [0, BANNER_HEIGHT], outputRange: [0, -BANNER_HEIGHT], extrapolateLeft: "clamp" }) },
+            ],
+          }}
+        >
           {bannerImage ? (
             <Animated.Image
               source={{ uri: bannerImage }}
               resizeMode="cover"
               style={{
-                position: "absolute",
-                top: 0,
-                left: 0,
                 width: "100%",
                 height: BANNER_HEIGHT,
-                transform: [
-                  {
-                    translateY: scrollY.interpolate({
-                      inputRange: [-BANNER_HEIGHT, 0],
-                      outputRange: [-BANNER_HEIGHT / 2, 0],
-                      extrapolateLeft: "extend",
-                      extrapolateRight: "clamp",
-                    }),
-                  },
-                  {
-                    scale: scrollY.interpolate({
-                      inputRange: [-BANNER_HEIGHT, 0],
-                      outputRange: [2, 1],
-                      extrapolateLeft: "extend",
-                      extrapolateRight: "clamp",
-                    }),
-                  },
-                ],
+                transform: [{ translateY: pull([BANNER_HEIGHT / 2, 0]) }, { scale: pull([2, 1]) }],
               }}
             />
           ) : null}
-          <BannerDither />
-        </View>
+          <Animated.View style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: BANNER_HEIGHT, transform: [{ translateY: pull([BANNER_HEIGHT, 0]) }] }}>
+            <BannerDither />
+          </Animated.View>
+        </Animated.View>
       ) : null}
-      <View style={{ paddingHorizontal: 16, paddingBottom: 16, paddingTop: banner ? 0 : topSpace, gap: 12 }}>
-        <View style={{ flexDirection: "row", gap: 14, alignItems: "flex-start", marginTop: banner ? -OVERLAP : 0 }}>
-          <View style={{ flex: 1, gap: 6, paddingLeft: 6, paddingTop: banner ? OVERLAP - 8 : 0 }}>
-            <Text style={display(22)}>{title}</Text>
-            <View style={{ gap: 4, marginTop: 4 }}>
-              {facts.map((fact) => (
-                <Fact key={fact.label} label={fact.label} value={fact.value} />
-              ))}
-              {details.isLoading ? <Fact label="Developer" value="…" /> : null}
+      <Animated.ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: bottomSpace }}
+        scrollEventThrottle={16}
+        onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], { useNativeDriver: Platform.OS !== "web" })}
+      >
+        {banner ? <View style={{ height: BANNER_HEIGHT }} /> : null}
+        <View style={{ paddingHorizontal: 16, paddingBottom: 16, paddingTop: banner ? 0 : topSpace, gap: 12 }}>
+          <View style={{ flexDirection: "row", gap: 14, alignItems: "flex-start", marginTop: banner ? -OVERLAP : 0 }}>
+            <View style={{ flex: 1, gap: 6, paddingLeft: 6, paddingTop: banner ? OVERLAP - 8 : 0 }}>
+              <Text style={display(22)}>{title}</Text>
+              <View style={{ gap: 4, marginTop: 4 }}>
+                {facts.map((fact) => (
+                  <Fact key={fact.label} label={fact.label} value={fact.value} />
+                ))}
+                {details.isLoading ? <Fact label="Developer" value="…" /> : null}
+              </View>
+            </View>
+            <View style={{ width: 112 }}>
+              <CaseFace platformId={platformId} cover={cover} finished={finished} badge={30} />
             </View>
           </View>
-          <View style={{ width: 112 }}>
-            <CaseFace platformId={platformId} cover={cover} finished={finished} badge={30} />
-          </View>
+          {info?.summary ? (
+            <View style={{ marginTop: 4, padding: 12, gap: 6, backgroundColor: CARD, borderWidth: 3, borderColor: INK, ...hardSm }}>
+              <Text style={{ fontFamily: BODY, fontSize: 9, letterSpacing: 1.2, textTransform: "uppercase", color: "rgba(12,11,8,0.55)" }}>About</Text>
+              <Text style={{ fontFamily: BODY, fontSize: 12, lineHeight: 18, color: INK }}>{info.summary}</Text>
+            </View>
+          ) : null}
+          {children ? <View style={{ gap: 10, marginTop: 4 }}>{children}</View> : null}
+          {onFeatured && related.length > 0 ? (
+            <View style={{ gap: 8, marginTop: 20 }}>
+              <Text
+                style={{
+                  fontFamily: DISPLAY,
+                  fontSize: 22,
+                  letterSpacing: 0.5,
+                  textTransform: "uppercase",
+                  color: INK,
+                  borderBottomWidth: 3,
+                  borderBottomColor: INK,
+                  paddingBottom: 4,
+                }}
+              >
+                Featured games
+              </Text>
+              <CaseRow>
+                {related.map((game) => (
+                  <Tap key={game.id} accessibilityLabel={game.title} shade={false} onPress={() => onFeatured(game)} style={{ width: 104, gap: 6 }}>
+                    <CaseFace platformId={platformId} cover={game.cover} />
+                    <Text style={{ fontFamily: DISPLAY, fontSize: 12, letterSpacing: 0.3, textTransform: "uppercase", color: INK }} numberOfLines={2}>
+                      {game.title}
+                    </Text>
+                  </Tap>
+                ))}
+              </CaseRow>
+            </View>
+          ) : null}
         </View>
-        {info?.summary ? (
-          <View style={{ marginTop: 4, padding: 12, gap: 6, backgroundColor: CARD, borderWidth: 3, borderColor: INK, ...hardSm }}>
-            <Text style={{ fontFamily: BODY, fontSize: 9, letterSpacing: 1.2, textTransform: "uppercase", color: "rgba(12,11,8,0.55)" }}>About</Text>
-            <Text style={{ fontFamily: BODY, fontSize: 12, lineHeight: 18, color: INK }}>{info.summary}</Text>
-          </View>
-        ) : null}
-        {children ? <View style={{ gap: 10, marginTop: 4 }}>{children}</View> : null}
-        {onFeatured && related.length > 0 ? (
-          <View style={{ gap: 8, marginTop: 20 }}>
-            <Text
-              style={{
-                fontFamily: DISPLAY,
-                fontSize: 22,
-                letterSpacing: 0.5,
-                textTransform: "uppercase",
-                color: INK,
-                borderBottomWidth: 3,
-                borderBottomColor: INK,
-                paddingBottom: 4,
-              }}
-            >
-              Featured games
-            </Text>
-            <CaseRow>
-              {related.map((game) => (
-                <Tap key={game.id} accessibilityLabel={game.title} shade={false} onPress={() => onFeatured(game)} style={{ width: 104, gap: 6 }}>
-                  <CaseFace platformId={platformId} cover={game.cover} />
-                  <Text style={{ fontFamily: DISPLAY, fontSize: 12, letterSpacing: 0.3, textTransform: "uppercase", color: INK }} numberOfLines={2}>
-                    {game.title}
-                  </Text>
-                </Tap>
-              ))}
-            </CaseRow>
-          </View>
-        ) : null}
-      </View>
-    </Animated.ScrollView>
+      </Animated.ScrollView>
+    </View>
   );
 }
 
