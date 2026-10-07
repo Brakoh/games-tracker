@@ -1,5 +1,5 @@
-import { useRef } from "react";
-import { Animated, Platform, Text, View } from "react-native";
+import { useEffect, useRef } from "react";
+import { Animated, Platform, ScrollView, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useSavedBanner } from "../case-cover";
@@ -46,6 +46,8 @@ export function GameSheet({
   const banner = details.isLoading || Boolean(info?.banner) || Boolean(saved);
   const related = info?.related ?? [];
   const scrollY = useRef(new Animated.Value(0)).current;
+  const scrollRef = useRef<ScrollView>(null);
+  useFrameScroll(scrollRef, scrollY);
   const list = platformsFor();
   const consoles = info?.platforms?.length
     ? [...new Set(info.platforms.map((entry) => (entry.id && platformById(list, entry.id)?.name) || entry.name))].sort(
@@ -96,10 +98,11 @@ export function GameSheet({
         </Animated.View>
       ) : null}
       <Animated.ScrollView
+        ref={scrollRef}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: bottomSpace }}
         scrollEventThrottle={16}
-        onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], { useNativeDriver: Platform.OS !== "web" })}
+        onScroll={Platform.OS === "web" ? undefined : Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], { useNativeDriver: true })}
       >
         {banner ? <View style={{ height: BANNER_HEIGHT }} /> : null}
         <View style={{ paddingHorizontal: 16, paddingBottom: 16, paddingTop: banner ? 0 : topSpace, gap: 12 }}>
@@ -156,6 +159,41 @@ export function GameSheet({
       </Animated.ScrollView>
     </View>
   );
+}
+
+const SETTLED_FRAMES = 20;
+
+function useFrameScroll(scrollRef: React.RefObject<ScrollView | null>, scrollY: Animated.Value) {
+  useEffect(() => {
+    if (Platform.OS !== "web") return;
+    const node = (scrollRef.current as unknown as { getScrollableNode?: () => HTMLElement } | null)?.getScrollableNode?.();
+    if (!node) return;
+    let frame = 0;
+    let last = Number.NaN;
+    let still = 0;
+    const tick = () => {
+      const y = node.scrollTop;
+      if (y !== last) {
+        last = y;
+        still = 0;
+        scrollY.setValue(y);
+      } else {
+        still += 1;
+      }
+      frame = still < SETTLED_FRAMES ? requestAnimationFrame(tick) : 0;
+    };
+    const wake = () => {
+      still = 0;
+      if (!frame) frame = requestAnimationFrame(tick);
+    };
+    const events = ["touchstart", "touchmove", "touchend", "scroll", "wheel"];
+    for (const name of events) node.addEventListener(name, wake, { passive: true });
+    wake();
+    return () => {
+      cancelAnimationFrame(frame);
+      for (const name of events) node.removeEventListener(name, wake);
+    };
+  }, [scrollRef, scrollY]);
 }
 
 function Fact({ label, value }: { label: string; value: string }) {
