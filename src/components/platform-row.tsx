@@ -1,9 +1,10 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { Animated, PanResponder, Pressable, Text, View } from "react-native";
+import { Animated, PanResponder, Text, View } from "react-native";
 
-import { GRAB_SCALE, insertionIndex, ROW_GAP, rowShift, SLIDE_MS } from "../platform-drag";
-import { CARD, DISPLAY, hard, INK, RED } from "../theme";
-import { display, TrashIcon } from "./bits";
+import { clampTravel, GRAB_SCALE, insertionIndex, REORDER_HIT, ROW_GAP, rowShift, SLIDE_MS } from "../platform-drag";
+import { CARD, DISPLAY, hard, INK, RED, YELLOW } from "../theme";
+import { ActionStar, ConsoleLogo, display, FavoriteCorner, TrashIcon } from "./bits";
+import { Tap } from "./tap";
 import { DitherEdge } from "./chrome";
 
 const SCREEN_EDGE = 12;
@@ -33,10 +34,12 @@ const DragContext = createContext<DragApi | null>(null);
 
 export function PlatformList({
   ids,
+  favoriteCount,
   onReorder,
   children,
 }: {
   ids: string[];
+  favoriteCount: number;
   onReorder: (fromId: string, toId: string) => void;
   children: ReactNode;
 }) {
@@ -44,17 +47,20 @@ export function PlatformList({
   const [openId, setOpenId] = useState<string | null>(null);
   const dragRef = useRef<Drag | null>(null);
   const idsRef = useRef(ids);
+  const favoriteCountRef = useRef(favoriteCount);
   const onReorderRef = useRef(onReorder);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   idsRef.current = ids;
+  favoriteCountRef.current = favoriteCount;
   onReorderRef.current = onReorder;
 
   const move = useCallback((dy: number) => {
     const current = dragRef.current;
     if (!current || current.settling) return;
-    const to = insertionIndex(current.from, dy, current.pitch, idsRef.current.length);
-    if (dy === current.dy && to === current.to) return;
-    const next = { ...current, dy, to };
+    const travel = clampTravel(current.from, dy, current.pitch, favoriteCountRef.current, idsRef.current.length);
+    const to = insertionIndex(current.from, travel, current.pitch, idsRef.current.length);
+    if (travel === current.dy && to === current.to) return;
+    const next = { ...current, dy: travel, to };
     dragRef.current = next;
     setDrag(next);
   }, []);
@@ -105,19 +111,25 @@ export function PlatformRow({
   id,
   name,
   count,
+  logo,
   highlighted,
+  favorite,
   onOpen,
   onTurnOff,
+  onFavorite,
 }: {
   id: string;
   name: string;
   count: number;
+  logo?: string;
   highlighted: boolean;
+  favorite: boolean;
   beforeId?: string;
   afterId?: string;
   onOpen: () => void;
   onReorder: (fromId: string, toId: string) => void;
   onTurnOff: () => void;
+  onFavorite: () => void;
 }) {
   const api = useContext(DragContext);
   const height = useRef(0);
@@ -131,8 +143,11 @@ export function PlatformRow({
   const openRef = useRef(false);
   const [atEdge, setAtEdge] = useState(false);
   const moved = useRef(0);
+  const sorting = useRef(false);
   const apiRef = useRef(api);
+  const onFavoriteRef = useRef(onFavorite);
   apiRef.current = api;
+  onFavoriteRef.current = onFavorite;
   const open = api?.openId === id;
 
   useEffect(() => {
@@ -148,9 +163,17 @@ export function PlatformRow({
   const pan = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
-      onPanResponderGrant: () => apiRef.current?.grab(id, height.current),
+      onPanResponderGrant: () => {
+        sorting.current = true;
+        apiRef.current?.grab(id, height.current);
+      },
       onPanResponderMove: (_, gesture) => apiRef.current?.move(gesture.dy),
-      onPanResponderRelease: () => apiRef.current?.finish(),
+      onPanResponderRelease: () => {
+        apiRef.current?.finish();
+        setTimeout(() => {
+          sorting.current = false;
+        }, 0);
+      },
       onPanResponderTerminate: () => apiRef.current?.finish(),
     }),
   ).current;
@@ -161,18 +184,26 @@ export function PlatformRow({
         if (apiRef.current?.drag) return false;
         const horizontal = Math.abs(gesture.dx) > 8 && Math.abs(gesture.dx) > Math.abs(gesture.dy);
         if (!horizontal) return false;
-        return gesture.dx < 0 || openRef.current;
+        return true;
       },
       onPanResponderMove: (_, gesture) => {
         const base = openRef.current ? -ACTION : 0;
-        const next = Math.min(0, Math.max(-ACTION, base + gesture.dx));
+        const next = Math.min(ACTION, Math.max(-ACTION, base + gesture.dx));
         moved.current = Math.abs(gesture.dx);
         reveal.setValue(next);
         setAtEdge(next < 0);
       },
       onPanResponderRelease: (_, gesture) => {
         const base = openRef.current ? -ACTION : 0;
-        const next = Math.min(0, Math.max(-ACTION, base + gesture.dx));
+        const next = Math.min(ACTION, Math.max(-ACTION, base + gesture.dx));
+        if (next > ACTION / 2) {
+          openRef.current = false;
+          setAtEdge(false);
+          apiRef.current?.setOpen(null);
+          Animated.timing(reveal, { toValue: 0, duration: SLIDE_MS, useNativeDriver: true }).start();
+          onFavoriteRef.current();
+          return;
+        }
         const should = next < -ACTION / 2;
         openRef.current = should;
         setAtEdge(should);
@@ -200,8 +231,25 @@ export function PlatformRow({
             <DitherEdge side="left" />
           </View>
         ) : null}
-        <Pressable
-          accessibilityRole="button"
+        <View
+          pointerEvents="none"
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            bottom: 4,
+            width: ACTION,
+            backgroundColor: YELLOW,
+            borderWidth: 3,
+            borderColor: INK,
+            alignItems: "center",
+            justifyContent: "center",
+            ...hard,
+          }}
+        >
+          <ActionStar crossed={favorite} />
+        </View>
+        <Tap
           accessibilityLabel="Off"
           onPress={onTurnOff}
           style={{
@@ -219,9 +267,22 @@ export function PlatformRow({
           }}
         >
           <TrashIcon />
-        </Pressable>
+        </Tap>
         <Animated.View style={{ transform: [{ translateX: reveal }] }} {...swipe.panHandlers}>
-          <View
+          <Tap
+            shrink={false}
+            accessibilityLabel={name}
+            onPress={() => {
+              if (sorting.current || moved.current > 8) {
+                moved.current = 0;
+                return;
+              }
+              if (openRef.current) {
+                api?.setOpen(null);
+                return;
+              }
+              onOpen();
+            }}
             style={{
               flexDirection: "row",
               alignItems: "center",
@@ -234,29 +295,15 @@ export function PlatformRow({
               paddingHorizontal: 12,
             }}
           >
-            <View accessibilityLabel="Reorder" {...pan.panHandlers} style={{ width: 28, justifyContent: "center", gap: 3 }}>
+            <View style={{ width: 28, justifyContent: "center", gap: 3 }}>
               <Grip />
             </View>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={name}
-              onPress={() => {
-                if (moved.current > 8) {
-                  moved.current = 0;
-                  return;
-                }
-                if (openRef.current) {
-                  api?.setOpen(null);
-                  return;
-                }
-                onOpen();
-              }}
-              style={{ flex: 1 }}
-            >
-              <Text style={display(18)}>{name}</Text>
-            </Pressable>
+            <View accessibilityLabel="Reorder" {...pan.panHandlers} style={{ position: "absolute", zIndex: 3, ...REORDER_HIT }} />
+            <ConsoleLogo uri={logo} />
+            <Text style={[display(18), { flex: 1 }]}>{name}</Text>
             <Text style={{ fontFamily: DISPLAY, fontSize: 22, color: RED }}>{count}</Text>
-          </View>
+            {favorite ? <FavoriteCorner /> : null}
+          </Tap>
         </Animated.View>
       </View>
     </Slide>

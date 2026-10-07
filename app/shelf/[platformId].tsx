@@ -1,14 +1,15 @@
 import { useState } from "react";
 import { router, useLocalSearchParams } from "expo-router";
-import { Image, Platform, Pressable, ScrollView, Text, View } from "react-native";
+import { Image, Platform, ScrollView, Text, View } from "react-native";
 
 import { sortCopies } from "../../src/collection";
 import { useCaseCover } from "../../src/case-cover";
-import { EmptyNote, SkewTag } from "../../src/components/bits";
+import { EmptyNote, ViewToggle } from "../../src/components/bits";
 import { CaseTile, Phone, SortBar, StickyAdd, formatsLine } from "../../src/components/chrome";
-import { platformById, platformsFor } from "../../src/platforms";
+import { PressShade, Tap } from "../../src/components/tap";
+import { menuPlatformId, platformById, platformsFor, systemIds } from "../../src/platforms";
 import { useCollection } from "../../src/store";
-import { BODY, CARD, DISPLAY, hard, INK, RED } from "../../src/theme";
+import { BODY, CARD, DISPLAY, hard, INK } from "../../src/theme";
 import type { Copy } from "../../src/types";
 
 function ShelfThumb({ cover }: { cover?: string }) {
@@ -49,19 +50,17 @@ function ShelfLine({
   title,
   subtitle,
   onOpen,
-  onToggleFinished,
 }: {
   copy: Copy;
   title: string;
   subtitle: string;
   onOpen: () => void;
-  onToggleFinished: () => void;
 }) {
   const stored = useCollection((state) => state.catalog[copy.gameId]?.cover);
   const front = useCaseCover(copy.gameId, copy.platformId, title) || (stored?.startsWith("https://images.igdb.com/") ? stored : undefined);
   return (
-    <Pressable
-      accessibilityRole="button"
+    <Tap
+      shade={false}
       accessibilityLabel={title}
       onPress={onOpen}
       style={{
@@ -76,7 +75,12 @@ function ShelfLine({
         paddingHorizontal: 10,
       }}
     >
-      <ShelfThumb cover={front} />
+      {(dim) => (
+        <>
+      <View>
+        <ShelfThumb cover={front} />
+        <PressShade opacity={dim} />
+      </View>
       <View style={{ flex: 1, gap: 2 }}>
         <Text style={{ fontFamily: DISPLAY, fontSize: 16, letterSpacing: 0.4, textTransform: "uppercase", color: INK }} numberOfLines={1}>
           {title}
@@ -85,19 +89,9 @@ function ShelfLine({
           {subtitle}
         </Text>
       </View>
-      <Pressable
-        accessibilityLabel={copy.finished ? "Finished" : "Not finished"}
-        onPress={onToggleFinished}
-        hitSlop={8}
-        style={{
-          width: 16,
-          height: 16,
-          borderWidth: 2,
-          borderColor: INK,
-          backgroundColor: copy.finished ? RED : CARD,
-        }}
-      />
-    </Pressable>
+        </>
+      )}
+    </Tap>
   );
 }
 
@@ -111,12 +105,13 @@ export default function ShelfScreen() {
   const switch2RawgId = useCollection((state) => state.switch2RawgId);
   const setSort = useCollection((state) => state.setSort);
   const setShelfView = useCollection((state) => state.setShelfView);
-  const toggleFinished = useCollection((state) => state.toggleFinished);
   const list = platformsFor(switch2RawgId);
-  const nameOf = (platform: string) => platformById(list, platform)?.name ?? platform;
+  const menuId = menuPlatformId(id);
+  const nameOf = (platform: string) => platformById(list, menuPlatformId(platform))?.name ?? platform;
   const titleOf = (gameId: string) => catalog[gameId]?.title ?? gameId;
+  const ids = new Set(systemIds(menuId));
   const shelf = sortCopies(
-    copies.filter((copy) => copy.platformId === id),
+    copies.filter((copy) => ids.has(copy.platformId)),
     sort,
     titleOf,
     nameOf,
@@ -124,10 +119,10 @@ export default function ShelfScreen() {
 
   return (
     <Phone
-      title={nameOf(id)}
+      title={nameOf(menuId)}
       showBack
       onBack={() => router.replace("/")}
-      footer={<StickyAdd onPress={() => router.push(`/add?platformId=${id}`)} />}
+      footer={<StickyAdd onPress={() => router.push(`/add?platformId=${menuId}`)} />}
     >
       {shelf.length === 0 ? (
         <EmptyNote />
@@ -137,10 +132,7 @@ export default function ShelfScreen() {
             <View style={{ flex: 1 }}>
               <SortBar sort={sort} onSort={setSort} />
             </View>
-            <SkewTag
-              label={shelfView === "grid" ? "List" : "Grid"}
-              onPress={() => setShelfView(shelfView === "grid" ? "list" : "grid")}
-            />
+            <ViewToggle grid={shelfView === "grid"} onPress={() => setShelfView(shelfView === "grid" ? "list" : "grid")} />
           </View>
           {shelfView === "grid" ? (
             <View style={{ flexDirection: "row", flexWrap: "wrap", margin: -5 }}>
@@ -151,7 +143,6 @@ export default function ShelfScreen() {
                     title={titleOf(copy.gameId)}
                     subtitle={formatsLine(copy.formats)}
                     onOpen={() => router.push(`/game/${copy.gameId}/${copy.platformId}?from=shelf`)}
-                    onToggleFinished={() => toggleFinished(copy.gameId, copy.platformId)}
                   />
                 </View>
               ))}
@@ -165,7 +156,6 @@ export default function ShelfScreen() {
                   title={titleOf(copy.gameId)}
                   subtitle={formatsLine(copy.formats)}
                   onOpen={() => router.push(`/game/${copy.gameId}/${copy.platformId}?from=shelf`)}
-                  onToggleFinished={() => toggleFinished(copy.gameId, copy.platformId)}
                 />
               ))}
             </View>

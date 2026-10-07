@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 
+import { readCover, rememberCover } from "./cover-cache";
 import { collectionDoor } from "./door";
 
 type CoverResponse = {
@@ -71,12 +72,30 @@ export function loadCaseCover(key: string, title: string, platformId: string) {
   return promise;
 }
 
+async function ownedCover(key: string, title: string, platformId: string) {
+  try {
+    const saved = await readCover(key);
+    if (saved) return saved;
+  } catch {
+    // A broken local copy falls through to a fresh download.
+  }
+  const remote = await loadCaseCover(key, title, platformId);
+  if (!remote) return null;
+  try {
+    return (await rememberCover(key, remote)) ?? remote;
+  } catch {
+    return remote;
+  }
+}
+
 export function useCaseCover(gameId: string, platformId: string, title: string) {
   const query = useQuery({
     queryKey: ["case-cover", gameId, platformId, title],
-    queryFn: () => loadCaseCover(`${gameId}:${platformId}`, title, platformId),
+    queryFn: () => ownedCover(`${gameId}:${platformId}`, title, platformId),
     staleTime: Infinity,
+    gcTime: Infinity,
     retry: 2,
+    networkMode: "always",
     enabled: title.trim().length > 0,
   });
   return query.data || undefined;

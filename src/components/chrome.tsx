@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { Image, Platform, Pressable, ScrollView, Text, useWindowDimensions, View, type ViewStyle } from "react-native";
+import { Image, Platform, ScrollView, Text, useWindowDimensions, View, type ViewStyle } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useCaseCover } from "../case-cover";
@@ -7,6 +7,7 @@ import { useCollection } from "../store";
 import { BODY, CARD, DISPLAY, hard, hardSm, INK, RED } from "../theme";
 import type { Copy, Format, SortMode } from "../types";
 import { SkewTag } from "./bits";
+import { PressShade, Tap } from "./tap";
 
 export function Phone({
   title,
@@ -94,16 +95,7 @@ export function SortBar({ sort, onSort, nowrap }: { sort: SortMode; onSort: (sor
   );
 }
 
-export function CaseFace({
-  finished,
-  cover,
-  onToggleFinished,
-}: {
-  platformId: string;
-  finished: boolean;
-  cover?: string;
-  onToggleFinished: () => void;
-}) {
+export function CaseFace({ cover }: { platformId: string; cover?: string }) {
   const [loadedCover, setLoadedCover] = useState<string | null>(null);
   const ready = !!cover && loadedCover === cover;
   return (
@@ -134,21 +126,6 @@ export function CaseFace({
           ) : null}
         </View>
       </View>
-      <Pressable
-        accessibilityLabel={finished ? "Finished" : "Not finished"}
-        onPress={onToggleFinished}
-        hitSlop={8}
-        style={{
-          position: "absolute",
-          top: 4,
-          right: 4,
-          width: 16,
-          height: 16,
-          borderWidth: 2,
-          borderColor: INK,
-          backgroundColor: finished ? RED : CARD,
-        }}
-      />
     </View>
   );
 }
@@ -163,27 +140,34 @@ export function CaseTile({
   subtitle,
   width,
   onOpen,
-  onToggleFinished,
 }: {
   copy: Copy;
   title: string;
-  subtitle: string;
+  subtitle?: string;
   width?: number;
   onOpen: () => void;
-  onToggleFinished: () => void;
 }) {
   const stored = useCollection((state) => state.catalog[copy.gameId]?.cover);
   const front = useCaseCover(copy.gameId, copy.platformId, title) || igdbCover(stored);
   return (
-    <Pressable onPress={onOpen} accessibilityRole="button" accessibilityLabel={title} style={{ width: width ?? "100%", gap: 6 }}>
-      <CaseFace platformId={copy.platformId} cover={front} finished={copy.finished} onToggleFinished={onToggleFinished} />
-      <Text style={{ fontFamily: DISPLAY, fontSize: 12, letterSpacing: 0.3, textTransform: "uppercase", color: INK }} numberOfLines={2}>
-        {title}
-      </Text>
-      <Text style={{ fontFamily: BODY, fontSize: 10, color: INK }} numberOfLines={1}>
-        {subtitle}
-      </Text>
-    </Pressable>
+    <Tap shade={false} onPress={onOpen} accessibilityLabel={title} style={{ width: width ?? "100%", gap: 6 }}>
+      {(dim) => (
+        <>
+          <View>
+            <CaseFace platformId={copy.platformId} cover={front} />
+            <PressShade opacity={dim} />
+          </View>
+          <Text style={{ fontFamily: DISPLAY, fontSize: 12, letterSpacing: 0.3, textTransform: "uppercase", color: INK }} numberOfLines={2}>
+            {title}
+          </Text>
+          {subtitle ? (
+            <Text style={{ fontFamily: BODY, fontSize: 10, color: INK }} numberOfLines={1}>
+              {subtitle}
+            </Text>
+          ) : null}
+        </>
+      )}
+    </Tap>
   );
 }
 
@@ -260,8 +244,7 @@ export function StickyAdd({ onPress }: { onPress: () => void }) {
   const { width } = useWindowDimensions();
   const framed = width >= 760;
   return (
-    <Pressable
-      accessibilityRole="button"
+    <Tap
       accessibilityLabel="Add a game"
       onPress={onPress}
       style={{
@@ -278,7 +261,7 @@ export function StickyAdd({ onPress }: { onPress: () => void }) {
       }}
     >
       <Text style={{ color: "#FFFFFF", fontFamily: DISPLAY, fontSize: 18, letterSpacing: 0.6, textTransform: "uppercase" }}>Add a game</Text>
-    </Pressable>
+    </Tap>
   );
 }
 
@@ -313,8 +296,7 @@ export function CornerAction({ label, onPress }: { label: string; onPress: () =>
   const { width } = useWindowDimensions();
   const framed = width >= 760;
   return (
-    <Pressable
-      accessibilityRole="button"
+    <Tap
       accessibilityLabel={label}
       onPress={onPress}
       style={{
@@ -332,7 +314,7 @@ export function CornerAction({ label, onPress }: { label: string; onPress: () =>
       }}
     >
       <Text style={{ color: "#FFFFFF", fontFamily: DISPLAY, fontSize: 18, letterSpacing: 0.6, textTransform: "uppercase" }}>{label}</Text>
-    </Pressable>
+    </Tap>
   );
 }
 

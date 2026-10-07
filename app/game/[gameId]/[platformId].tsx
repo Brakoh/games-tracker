@@ -1,11 +1,13 @@
 import { router, useLocalSearchParams } from "expo-router";
-import { Pressable, Text, View } from "react-native";
+import { Text, View } from "react-native";
 
 import { useCaseCover } from "../../../src/case-cover";
+import { forgetCover } from "../../../src/cover-cache";
 import { findCopy } from "../../../src/collection";
 import { SkewTag, display } from "../../../src/components/bits";
 import { CaseFace, Phone, formatLabel } from "../../../src/components/chrome";
-import { platformById, platformsFor } from "../../../src/platforms";
+import { Tap } from "../../../src/components/tap";
+import { platformById, platformsFor, menuPlatformId } from "../../../src/platforms";
 import { useCollection } from "../../../src/store";
 import { BODY, CARD, DISPLAY, INK, RED } from "../../../src/theme";
 import type { Format } from "../../../src/types";
@@ -23,7 +25,7 @@ export default function GameScreen() {
   const copy = findCopy(copies, gameId, platformId);
   const list = platformsFor(switch2RawgId);
   const title = catalog[gameId]?.title ?? gameId;
-  const platformName = platformById(list, platformId)?.name ?? platformId;
+  const platformName = platformById(list, menuPlatformId(platformId))?.name ?? platformId;
   const game = catalog[gameId] ?? { id: gameId, title, platforms: [platformId] };
   const front = useCaseCover(gameId, platformId, title) || (game.cover?.startsWith("https://images.igdb.com/") ? game.cover : undefined);
 
@@ -41,12 +43,7 @@ export default function GameScreen() {
     <Phone title="Game" showBack onBack={() => router.replace(params.from === "home" ? "/" : `/shelf/${platformId}`)}>
       <View style={{ padding: 16, gap: 14 }}>
         <View style={{ width: 160 }}>
-          <CaseFace
-            platformId={platformId}
-            cover={front}
-            finished={copy.finished}
-            onToggleFinished={() => toggleFinished(gameId, platformId)}
-          />
+          <CaseFace platformId={platformId} cover={front} />
         </View>
         <Text style={{ fontFamily: DISPLAY, fontSize: 28, lineHeight: 30, letterSpacing: 0.4, textTransform: "uppercase", color: INK }}>{title}</Text>
         <Text style={{ fontFamily: BODY, fontSize: 12, letterSpacing: 1.2, textTransform: "uppercase", color: INK }}>{platformName}</Text>
@@ -57,7 +54,10 @@ export default function GameScreen() {
               label="Remove"
               onPress={() => {
                 const still = removeFormat(gameId, platformId, format);
-                if (!still) router.replace(`/shelf/${platformId}`);
+                if (!still) {
+                  void forgetCover(`${gameId}:${platformId}`);
+                  router.replace(`/shelf/${platformId}`);
+                }
               }}
             />
           </View>
@@ -70,10 +70,10 @@ export default function GameScreen() {
           </View>
         )}
         <View style={{ height: 3, backgroundColor: INK }} />
-        <Pressable onPress={() => toggleFinished(gameId, platformId)} style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+        <Tap accessibilityLabel="Finished" onPress={() => toggleFinished(gameId, platformId)} style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
           <View style={{ width: 18, height: 18, borderWidth: 2, borderColor: INK, backgroundColor: copy.finished ? RED : CARD }} />
           <Text style={display(18)}>Finished</Text>
-        </Pressable>
+        </Tap>
       </View>
     </Phone>
   );

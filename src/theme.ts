@@ -2,6 +2,7 @@ export const INK = "#0C0B08";
 export const PAPER = "#F5F2E3";
 export const CARD = "#FFFFFF";
 export const RED = "#E52E2E";
+export const YELLOW = "#FFD400";
 export const DISPLAY = "Anton_400Regular";
 export const BODY = "Menlo";
 

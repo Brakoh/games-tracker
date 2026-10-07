@@ -1,3 +1,4 @@
+import { isSwitch, menuPlatformId, systemIds } from "./platforms";
 import type { CatalogGame, Copy, Format, SortMode } from "./types";
 
 export function owns(copies: Copy[], gameId: string) {
@@ -24,13 +25,26 @@ export function sortCopies(copies: Copy[], mode: SortMode, titleOf: (gameId: str
 }
 
 export function canAdd(game: CatalogGame, platformId: string | null, active: Record<string, boolean>, copies: Copy[]) {
-  const candidates = platformId ? [platformId] : game.platforms.filter((id) => active[id]);
-  return candidates.some((id) => {
-    if (!game.platforms.includes(id)) return false;
-    const copy = findCopy(copies, game.id, id);
-    if (!copy) return true;
-    return copy.formats.length < 2;
+  const candidates = platformId
+    ? systemIds(platformId).filter((id) => game.platforms.includes(id))
+    : game.platforms.filter((id) => active[id] || (isSwitch(id) && (active.switch || active["switch-2"])));
+  const groups = new Map<string, string[]>();
+  for (const id of candidates) {
+    const key = menuPlatformId(id);
+    groups.set(key, [...(groups.get(key) ?? []), id]);
+  }
+  return [...groups.values()].some((ids) => {
+    const owned = copies.filter((copy) => copy.gameId === game.id && ids.includes(copy.platformId) && copy.formats.length > 0);
+    if (owned.length === 0) return true;
+    return owned.some((copy) => copy.formats.length < 2);
   });
+}
+
+export function possessionId(platforms: string[], menuId: string, copies: Copy[], gameId: string) {
+  const ids = systemIds(menuId).filter((id) => platforms.includes(id));
+  const owned = copies.find((copy) => copy.gameId === gameId && ids.includes(copy.platformId) && copy.formats.length > 0);
+  if (owned) return owned.platformId;
+  return ids[0] ?? menuId;
 }
 
 export function withFormat(copies: Copy[], gameId: string, platformId: string, format: Format) {

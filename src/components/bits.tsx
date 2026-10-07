@@ -1,6 +1,10 @@
-import { Pressable, Text, TextInput, View, type TextStyle, type ViewStyle } from "react-native";
+import { useEffect, useRef, useState } from "react";
+import { Animated, Easing, Image, Platform, Text, TextInput, View, type TextStyle, type ViewStyle } from "react-native";
+import { SvgXml } from "react-native-svg";
 
-import { BODY, CARD, DISPLAY, hard, hardSm, INK, PAPER, RED } from "../theme";
+import { BODY, CARD, DISPLAY, hard, hardSm, INK, PAPER, RED, YELLOW } from "../theme";
+import { WINDOWS_LOGO, WINDOWS_XML } from "../windows-logo";
+import { Tap } from "./tap";
 
 export function SkewTag({
   label,
@@ -12,8 +16,7 @@ export function SkewTag({
   active?: boolean;
 }) {
   return (
-    <Pressable
-      accessibilityRole="button"
+    <Tap
       accessibilityLabel={label}
       onPress={onPress}
       style={{
@@ -38,7 +41,60 @@ export function SkewTag({
       >
         {label}
       </Text>
-    </Pressable>
+    </Tap>
+  );
+}
+
+export function ViewToggle({ grid, onPress }: { grid: boolean; onPress: () => void }) {
+  return (
+    <Tap
+      accessibilityLabel={grid ? "List" : "Grid"}
+      onPress={onPress}
+      style={{
+        transform: [{ skewX: "-12deg" }],
+        backgroundColor: CARD,
+        borderWidth: 3,
+        borderColor: INK,
+        ...hardSm,
+        paddingVertical: 8,
+        paddingHorizontal: 10,
+      }}
+    >
+      <View style={{ transform: [{ skewX: "12deg" }] }}>
+        <ShelfMarks grid={grid} />
+      </View>
+    </Tap>
+  );
+}
+
+function ShelfMarks({ grid }: { grid: boolean }) {
+  const progress = useRef(new Animated.Value(grid ? 0 : 1)).current;
+
+  useEffect(() => {
+    Animated.timing(progress, {
+      toValue: grid ? 0 : 1,
+      duration: 280,
+      easing: Easing.inOut(Easing.cubic),
+      useNativeDriver: false,
+    }).start();
+  }, [grid, progress]);
+
+  return (
+    <View style={{ width: 27, height: 17 }}>
+      {[0, 1, 2].map((index) => (
+        <Animated.View
+          key={index}
+          style={{
+            position: "absolute",
+            backgroundColor: INK,
+            width: progress.interpolate({ inputRange: [0, 1], outputRange: [27, 7] }),
+            height: progress.interpolate({ inputRange: [0, 1], outputRange: [3, 7] }),
+            left: progress.interpolate({ inputRange: [0, 1], outputRange: [0, index * 10] }),
+            top: progress.interpolate({ inputRange: [0, 1], outputRange: [index * 7, 5] }),
+          }}
+        />
+      ))}
+    </View>
   );
 }
 
@@ -79,6 +135,129 @@ export function SearchField({
   );
 }
 
+const LOGO_W = 48;
+const LOGO_H = 22;
+
+function sharpLogo(uri: string) {
+  return uri.replace("/t_logo_med/", "/t_1080p/");
+}
+
+export function ConsoleLogo({ uri, width = LOGO_W, height = LOGO_H }: { uri?: string; width?: number; height?: number }) {
+  if (uri === WINDOWS_LOGO) {
+    const size = height;
+    return (
+      <View style={{ width, height, alignItems: "center", justifyContent: "center" }}>
+        <SvgXml xml={WINDOWS_XML} width={size} height={size} />
+      </View>
+    );
+  }
+  return <RemoteLogo uri={uri} width={width} height={height} />;
+}
+
+function RemoteLogo({ uri, width, height }: { uri?: string; width: number; height: number }) {
+  const [src, setSrc] = useState<string | undefined>();
+  useEffect(() => {
+    if (Platform.OS !== "web" || !uri) return;
+    let cancel = false;
+    const img = new window.Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => {
+      if (cancel) return;
+      const source = document.createElement("canvas");
+      source.width = img.naturalWidth;
+      source.height = img.naturalHeight;
+      const sample = source.getContext("2d");
+      if (!sample) return;
+      sample.drawImage(img, 0, 0);
+      const pixels = sample.getImageData(0, 0, source.width, source.height);
+      const data = pixels.data;
+      const pixelW = pixels.width;
+      const pixelH = pixels.height;
+      let minX = pixelW;
+      let minY = pixelH;
+      let maxX = 0;
+      let maxY = 0;
+      for (let y = 0; y < pixelH; y += 1) {
+        for (let x = 0; x < pixelW; x += 1) {
+          if (data[(y * pixelW + x) * 4 + 3] < 30) continue;
+          if (x < minX) minX = x;
+          if (y < minY) minY = y;
+          if (x > maxX) maxX = x;
+          if (y > maxY) maxY = y;
+        }
+      }
+      if (maxX < minX || maxY < minY) return;
+      const cropW = maxX - minX + 1;
+      const cropH = maxY - minY + 1;
+      const density = Math.min(window.devicePixelRatio || 1, 3);
+      const outW = Math.round(width * density);
+      const outH = Math.round(height * density);
+      const scale = Math.min(outW / cropW, outH / cropH);
+      const drawW = cropW * scale;
+      const drawH = cropH * scale;
+      const out = document.createElement("canvas");
+      out.width = outW;
+      out.height = outH;
+      const paint = out.getContext("2d");
+      if (!paint) return;
+      paint.imageSmoothingEnabled = true;
+      paint.imageSmoothingQuality = "high";
+      paint.drawImage(source, minX, minY, cropW, cropH, (outW - drawW) / 2, (outH - drawH) / 2, drawW, drawH);
+      setSrc(out.toDataURL());
+    };
+    img.src = sharpLogo(uri);
+    return () => {
+      cancel = true;
+    };
+  }, [uri, width, height]);
+  if (!uri) return <View style={{ width, height }} />;
+  if (Platform.OS === "web") {
+    if (!src) return <View style={{ width, height }} />;
+    return <Image accessible={false} source={{ uri: src }} style={{ width, height }} />;
+  }
+  return <Image accessible={false} source={{ uri: sharpLogo(uri) }} resizeMode="contain" style={{ width, height }} />;
+}
+
+export function ActionStar({ crossed }: { crossed?: boolean }) {
+  return (
+    <View style={{ width: 32, height: 32, alignItems: "center", justifyContent: "center" }}>
+      <Text style={{ color: "#FFFFFF", fontSize: 28, lineHeight: 32 }}>★</Text>
+      {crossed ? (
+        <View
+          pointerEvents="none"
+          style={{
+            position: "absolute",
+            width: 26,
+            height: 3,
+            backgroundColor: "#FFFFFF",
+            transform: [{ rotate: "-40deg" }],
+          }}
+        />
+      ) : null}
+    </View>
+  );
+}
+
+export function FavoriteCorner() {
+  return (
+    <View
+      pointerEvents="none"
+      style={{
+        position: "absolute",
+        top: 0,
+        left: 0,
+        zIndex: 2,
+        width: 0,
+        height: 0,
+        borderTopWidth: 16,
+        borderRightWidth: 16,
+        borderTopColor: YELLOW,
+        borderRightColor: "transparent",
+      }}
+    />
+  );
+}
+
 export function TrashIcon() {
   const ink = "#FFFFFF";
   return (
@@ -106,8 +285,7 @@ export function TrashIcon() {
 
 export function PlusButton({ onPress }: { onPress: () => void }) {
   return (
-    <Pressable
-      accessibilityRole="button"
+    <Tap
       accessibilityLabel="Edit systems"
       onPress={onPress}
       style={{
@@ -127,14 +305,13 @@ export function PlusButton({ onPress }: { onPress: () => void }) {
       <Text style={{ transform: [{ skewX: "12deg" }], color: "#FFFFFF", fontFamily: DISPLAY, fontSize: 15, lineHeight: 18, letterSpacing: 0.4 }}>
         EDIT SYSTEMS
       </Text>
-    </Pressable>
+    </Tap>
   );
 }
 
 export function ListRow({ label, onPress }: { label: string; onPress: () => void }) {
   return (
-    <Pressable
-      accessibilityRole="button"
+    <Tap
       accessibilityLabel={label}
       onPress={onPress}
       style={{
@@ -149,7 +326,7 @@ export function ListRow({ label, onPress }: { label: string; onPress: () => void
       }}
     >
       <Text style={display(18)}>{label}</Text>
-    </Pressable>
+    </Tap>
   );
 }
 

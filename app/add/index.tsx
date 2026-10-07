@@ -1,13 +1,15 @@
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native";
+import { ActivityIndicator, ScrollView, Text, View } from "react-native";
 
-import { canAdd } from "../../src/collection";
-import { SearchField, display, frame } from "../../src/components/bits";
+import { canAdd, possessionId } from "../../src/collection";
+import { ConsoleLogo, SearchField, display, frame } from "../../src/components/bits";
 import { Phone } from "../../src/components/chrome";
-import { platformById, platformsFor } from "../../src/platforms";
+import { Tap } from "../../src/components/tap";
+import { menuPlatformId, platformById, platformsFor, systemIds, visibleOrder } from "../../src/platforms";
 import { useCollection } from "../../src/store";
 import { INK } from "../../src/theme";
+import type { PlatformDef } from "../../src/types";
 import { useGameSearch } from "../../src/use-game-search";
 
 export default function AddScreen() {
@@ -20,8 +22,8 @@ export default function AddScreen() {
   const remember = useCollection((state) => state.remember);
   const [query, setQuery] = useState("");
   const debounced = useDebounced(query);
-  const activeIds = order.filter((id) => active[id]);
-  const allowed = fixed ? [fixed] : activeIds;
+  const menuIds = fixed ? [menuPlatformId(fixed)] : visibleOrder(order, active);
+  const allowed = menuIds.flatMap((id) => systemIds(id));
   const search = useGameSearch(debounced, allowed);
   const games = (search.data?.pages.flatMap((page) => page.games) ?? [])
     .filter((game, index, all) => all.findIndex((item) => item.id === game.id) === index)
@@ -35,30 +37,57 @@ export default function AddScreen() {
       <ScrollView stickyHeaderIndices={[0]} showsVerticalScrollIndicator={false} showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 24 }}>
         <SearchField value={query} onChange={setQuery} placeholder="Search games" />
         <View style={{ padding: 12, gap: 10 }}>
-          {fixed ? <Text style={display(13)}>{platformById(list, fixed)?.name}</Text> : null}
-          {games.map((game) => (
-            <Pressable
-              key={game.id}
-              onPress={() => {
-                remember(game);
-                if (fixed) router.push(`/add/format?gameId=${game.id}&platformId=${fixed}&depth=1`);
-                else router.push(`/add/platform?gameId=${game.id}`);
-              }}
-              style={{ ...frame, padding: 10 }}
-            >
-              <Text style={display(16)}>{game.title}</Text>
-            </Pressable>
-          ))}
+          {fixed ? <Text style={display(13)}>{platformById(list, menuPlatformId(fixed))?.name}</Text> : null}
+          {games.map((game) => {
+            const owned = ownedPlatforms(copies, order, game.id)
+              .map((id) => platformById(list, id))
+              .filter((platform): platform is PlatformDef => !!platform);
+            return (
+              <Tap
+                key={game.id}
+                accessibilityLabel={owned.length ? `${game.title}, ${owned.map((platform) => platform.name).join(", ")}` : game.title}
+                onPress={() => {
+                  remember(game);
+                  if (fixed) router.push(`/add/format?gameId=${game.id}&platformId=${possessionId(game.platforms, fixed, copies, game.id)}&depth=1`);
+                  else router.push(`/add/platform?gameId=${game.id}`);
+                }}
+                style={{ ...frame, padding: 10, flexDirection: "row", alignItems: "center", gap: 10 }}
+              >
+                <Text style={{ ...display(16), flex: 1 }}>{game.title}</Text>
+                {owned.length > 0 ? (
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                    {owned.map((platform) => (
+                      <PlatformMark key={platform.id} platform={platform} />
+                    ))}
+                  </View>
+                ) : null}
+              </Tap>
+            );
+          })}
           {search.isLoading ? <ActivityIndicator color={INK} /> : null}
           {search.hasNextPage ? (
-            <Pressable onPress={() => void search.fetchNextPage()} style={{ ...frame, padding: 10 }}>
+            <Tap onPress={() => void search.fetchNextPage()} style={{ ...frame, padding: 10 }}>
               <Text style={display(16)}>More</Text>
-            </Pressable>
+            </Tap>
           ) : null}
         </View>
       </ScrollView>
     </Phone>
   );
+}
+
+function ownedPlatforms(copies: { gameId: string; platformId: string; formats: string[] }[], order: string[], gameId: string) {
+  const rank = new Map(order.map((id, index) => [id, index]));
+  return [...new Set(copies.filter((copy) => copy.gameId === gameId && copy.formats.length > 0).map((copy) => menuPlatformId(copy.platformId)))].sort(
+    (a, b) => (rank.get(a) ?? 99) - (rank.get(b) ?? 99),
+  );
+}
+
+function PlatformMark({ platform }: { platform: PlatformDef }) {
+  if (!platform.logo) {
+    return <Text style={display(12)}>{platform.name}</Text>;
+  }
+  return <ConsoleLogo uri={platform.logo} width={36} height={22} />;
 }
 
 function useDebounced(value: string) {

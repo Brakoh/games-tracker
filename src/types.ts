@@ -21,4 +21,5 @@ export type PlatformDef = {
   rawgId: number;
   featured: boolean;
   case: { w: number; h: number };
+  logo?: string;
 };

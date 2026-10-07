@@ -1,10 +1,11 @@
 import { router } from "expo-router";
 import { useEffect, useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native";
+import { ActivityIndicator, ScrollView, Text, View } from "react-native";
 
 import { owns } from "../src/collection";
 import { SearchField, SkewTag, display, frame } from "../src/components/bits";
 import { Phone } from "../src/components/chrome";
+import { Tap } from "../src/components/tap";
 import { platformsFor } from "../src/platforms";
 import { useCollection } from "../src/store";
 import { INK } from "../src/theme";
@@ -39,15 +40,15 @@ export default function WishesScreen() {
             </View>
           ))}
           {results.map((game) => (
-            <Pressable key={game.id} onPress={() => addWish(game)} style={{ ...frame, padding: 10 }}>
+            <Tap key={game.id} onPress={() => addWish(game)} style={{ ...frame, padding: 10 }}>
               <Text style={display(16)}>{game.title}</Text>
-            </Pressable>
+            </Tap>
           ))}
           {search.isLoading ? <ActivityIndicator color={INK} /> : null}
           {search.hasNextPage ? (
-            <Pressable onPress={() => void search.fetchNextPage()} style={{ ...frame, padding: 10 }}>
+            <Tap onPress={() => void search.fetchNextPage()} style={{ ...frame, padding: 10 }}>
               <Text style={display(16)}>More</Text>
-            </Pressable>
+            </Tap>
           ) : null}
         </View>
       </ScrollView>

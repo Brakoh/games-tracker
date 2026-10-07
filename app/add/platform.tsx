@@ -1,9 +1,10 @@
 import { router, useLocalSearchParams } from "expo-router";
 import { Text, View } from "react-native";
 
+import { possessionId } from "../../src/collection";
 import { ListRow, display } from "../../src/components/bits";
 import { Phone } from "../../src/components/chrome";
-import { platformById, platformsFor } from "../../src/platforms";
+import { platformById, platformsFor, systemIds, visibleOrder } from "../../src/platforms";
 import { useCollection } from "../../src/store";
 import { BODY, INK } from "../../src/theme";
 
@@ -13,10 +14,11 @@ export default function PlatformStep() {
   const catalog = useCollection((state) => state.catalog);
   const active = useCollection((state) => state.active);
   const order = useCollection((state) => state.order);
+  const copies = useCollection((state) => state.copies);
   const switch2RawgId = useCollection((state) => state.switch2RawgId);
   const game = catalog[id];
   const list = platformsFor(switch2RawgId);
-  const choices = order.filter((platformId) => active[platformId] && game?.platforms.includes(platformId));
+  const choices = visibleOrder(order, active).filter((platformId) => systemIds(platformId).some((item) => game?.platforms.includes(item)));
 
   return (
     <Phone title="Add a game" showBack onBack={() => router.back()}>
@@ -27,7 +29,7 @@ export default function PlatformStep() {
           <ListRow
             key={platformId}
             label={platformById(list, platformId)?.name ?? platformId}
-            onPress={() => router.push(`/add/format?gameId=${id}&platformId=${platformId}&depth=2`)}
+            onPress={() => router.push(`/add/format?gameId=${id}&platformId=${possessionId(game?.platforms ?? [], platformId, copies, id)}&depth=2`)}
           />
         ))}
       </View>

@@ -4,7 +4,7 @@ import { Text, View } from "react-native";
 import { findCopy } from "../../src/collection";
 import { SkewTag, display } from "../../src/components/bits";
 import { Phone } from "../../src/components/chrome";
-import { platformById, platformsFor } from "../../src/platforms";
+import { platformById, platformsFor, menuPlatformId } from "../../src/platforms";
 import { useCollection } from "../../src/store";
 import { BODY, INK } from "../../src/theme";
 import type { Format } from "../../src/types";
@@ -20,7 +20,7 @@ export default function FormatStep() {
   const game = catalog[gameId] ?? { id: gameId, title: gameId, platforms: [platformId] };
   const copy = findCopy(copies, gameId, platformId);
   const choices = (["physical", "digital"] as Format[]).filter((format) => !copy?.formats.includes(format));
-  const name = platformById(platformsFor(switch2RawgId), platformId)?.name ?? platformId;
+  const name = platformById(platformsFor(switch2RawgId), menuPlatformId(platformId))?.name ?? platformId;
 
   return (
     <Phone title="Add a game" showBack onBack={() => router.back()}>
