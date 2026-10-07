@@ -4,8 +4,8 @@ import { Image, Platform, ScrollView, Text, View } from "react-native";
 
 import { sortCopies } from "../../src/collection";
 import { useCaseCover } from "../../src/case-cover";
-import { EmptyNote, ViewToggle } from "../../src/components/bits";
-import { CaseTile, Phone, SortBar, StickyAdd, formatsLine } from "../../src/components/chrome";
+import { EmptyNote, FinishedRosette, MissingCover, ViewToggle } from "../../src/components/bits";
+import { BottomDither, CaseTile, Phone, SortBar, StickyAdd } from "../../src/components/chrome";
 import { PressShade, Tap } from "../../src/components/tap";
 import { menuPlatformId, platformById, platformsFor, systemIds } from "../../src/platforms";
 import { useCollection } from "../../src/store";
@@ -14,7 +14,9 @@ import type { Copy } from "../../src/types";
 
 function ShelfThumb({ cover }: { cover?: string }) {
   const [loaded, setLoaded] = useState<string | null>(null);
+  const [failed, setFailed] = useState<string | null>(null);
   const ready = !!cover && loaded === cover;
+  const missing = !cover || failed === cover;
   return (
     <View
       style={{
@@ -38,9 +40,11 @@ function ShelfThumb({ cover }: { cover?: string }) {
           source={{ uri: cover }}
           resizeMode="cover"
           onLoad={() => setLoaded(cover)}
+          onError={() => setFailed(cover)}
           style={{ width: "100%", height: "100%", opacity: ready ? 1 : 0 }}
         />
       ) : null}
+      {missing ? <MissingCover width={25} /> : null}
     </View>
   );
 }
@@ -48,12 +52,10 @@ function ShelfThumb({ cover }: { cover?: string }) {
 function ShelfLine({
   copy,
   title,
-  subtitle,
   onOpen,
 }: {
   copy: Copy;
   title: string;
-  subtitle: string;
   onOpen: () => void;
 }) {
   const stored = useCollection((state) => state.catalog[copy.gameId]?.cover);
@@ -80,13 +82,11 @@ function ShelfLine({
       <View>
         <ShelfThumb cover={front} />
         <PressShade opacity={dim} />
+        {copy.finished ? <FinishedRosette size={18} inset={-6} /> : null}
       </View>
-      <View style={{ flex: 1, gap: 2 }}>
+      <View style={{ flex: 1 }}>
         <Text style={{ fontFamily: DISPLAY, fontSize: 16, letterSpacing: 0.4, textTransform: "uppercase", color: INK }} numberOfLines={1}>
           {title}
-        </Text>
-        <Text style={{ fontFamily: BODY, fontSize: 10, color: INK }} numberOfLines={1}>
-          {subtitle}
         </Text>
       </View>
         </>
@@ -122,7 +122,12 @@ export default function ShelfScreen() {
       title={nameOf(menuId)}
       showBack
       onBack={() => router.replace("/")}
-      footer={<StickyAdd onPress={() => router.push(`/add?platformId=${menuId}`)} />}
+      footer={
+        <>
+          <BottomDither />
+          <StickyAdd onPress={() => router.push(`/add?platformId=${menuId}`)} />
+        </>
+      }
     >
       {shelf.length === 0 ? (
         <EmptyNote />
@@ -141,7 +146,6 @@ export default function ShelfScreen() {
                   <CaseTile
                     copy={copy}
                     title={titleOf(copy.gameId)}
-                    subtitle={formatsLine(copy.formats)}
                     onOpen={() => router.push(`/game/${copy.gameId}/${copy.platformId}?from=shelf`)}
                   />
                 </View>
@@ -154,7 +158,6 @@ export default function ShelfScreen() {
                   key={`${copy.gameId}-${copy.platformId}`}
                   copy={copy}
                   title={titleOf(copy.gameId)}
-                  subtitle={formatsLine(copy.formats)}
                   onOpen={() => router.push(`/game/${copy.gameId}/${copy.platformId}?from=shelf`)}
                 />
               ))}

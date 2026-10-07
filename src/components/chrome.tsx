@@ -5,8 +5,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useCaseCover } from "../case-cover";
 import { useCollection } from "../store";
 import { BODY, CARD, DISPLAY, hard, hardSm, INK, RED } from "../theme";
-import type { Copy, Format, SortMode } from "../types";
-import { SkewTag } from "./bits";
+import type { Copy, SortMode } from "../types";
+import { FinishedBadge, MissingCover, SkewTag } from "./bits";
 import { PressShade, Tap } from "./tap";
 
 const DESKTOP = Platform.OS === "web" && typeof window !== "undefined" && window.matchMedia?.("(hover: hover) and (pointer: fine)").matches;
@@ -102,9 +102,11 @@ export function SortBar({ sort, onSort, nowrap }: { sort: SortMode; onSort: (sor
   );
 }
 
-export function CaseFace({ cover }: { platformId: string; cover?: string }) {
+export function CaseFace({ cover, finished, badge }: { platformId: string; cover?: string; finished?: boolean; badge?: number }) {
   const [loadedCover, setLoadedCover] = useState<string | null>(null);
+  const [failedCover, setFailedCover] = useState<string | null>(null);
   const ready = !!cover && loadedCover === cover;
+  const missing = !cover || failedCover === cover;
   return (
     <View style={{ position: "relative" }}>
       <View style={{ width: "100%", borderWidth: 3, borderColor: INK, ...hardSm }}>
@@ -128,11 +130,14 @@ export function CaseFace({ cover }: { platformId: string; cover?: string }) {
               source={{ uri: cover }}
               resizeMode="cover"
               onLoad={() => setLoadedCover(cover ?? null)}
+              onError={() => setFailedCover(cover ?? null)}
               style={{ width: "100%", height: "100%", opacity: ready ? 1 : 0 }}
             />
           ) : null}
+          {missing ? <MissingCover width={47} /> : null}
         </View>
       </View>
+      {finished ? <FinishedBadge size={badge} inset={6} /> : null}
     </View>
   );
 }
@@ -161,7 +166,7 @@ export function CaseTile({
       {(dim) => (
         <>
           <View>
-            <CaseFace platformId={copy.platformId} cover={front} />
+            <CaseFace platformId={copy.platformId} cover={front} finished={copy.finished} />
             <PressShade opacity={dim} />
           </View>
           <Text style={{ fontFamily: DISPLAY, fontSize: 12, letterSpacing: 0.3, textTransform: "uppercase", color: INK }} numberOfLines={2}>
@@ -181,6 +186,8 @@ export function CaseTile({
 const DITHER_FADE = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABwAAAAICAYAAADqSp8ZAAAAUUlEQVR4nGNkIAC+fnr8n5tPlhGdj4/GZx4jPkliASmWM5FiKDY+uT6lCkB2BDoNwwR9iM9n6DSyz9BpqgJ8jiDbclJ8CqOxYQr9ht1R+CwHAFUHyzha+0AsAAAAAElFTkSuQmCC";
 const DITHER_BOTTOM = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAgAAACMCAYAAABBLuhFAAAAk0lEQVR42u2V3QqAMAhG9/6v2RsEXRcEg2Bq/ix1ZDBi5b6O58Jam3Yd+3ZS+/eT2D1NAtmiiIF8GMRw70UMopdODPyEDAxLJPSVqYsnU5QHPQNk1JsBMhrtwc7AT5jHAK1isCRkYPhBwjCGHBio4VEMGgb09xzoYfhEgIc1GbBRGOmBn/Cdh2KwFmTw4NBmFSgLLmgAlG22Px6yAAAAAElFTkSuQmCC";
 const DITHER_FADE_DOWN = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAgAAAAcCAYAAABcSP4GAAAARElEQVR42mP4+unxf3yYAasgAwMDXgU4TYDpRKaJMwGbTgwT0E2DKyJoAj5J0k3AyifKBLyAeibg4hMPyDeJem4Y3gAArL0YKueFXAkAAAAASUVORK5CYII=";
+const DITHER_BANNER = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAgAAAA4CAYAAADAdbkmAAAAXElEQVR42mNgGAVg8PXT4/+jbsK0k3w3UE/nQJgEU4lODwY3DDoT8HqRJDdgNYkiNxBvAl4Hk+QGGpoAwzBBZD5pbsBmEmluwIYZ0I0l3QRcDiTfDTgVEO0GdAwAK6YSC3LAExUAAAAASUVORK5CYII=";
+const DITHER_BANNER_HEIGHT = 56;
 const DITHER_WIDTH = 28;
 const DITHER_BOTTOM_HEIGHT = 140;
 
@@ -236,6 +243,26 @@ export function TopDither() {
   );
 }
 
+export function BannerDither() {
+  return (
+    <View pointerEvents="none" style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: DITHER_BANNER_HEIGHT }}>
+      {Platform.OS === "web" ? (
+        <View
+          style={{
+            width: "100%",
+            height: "100%",
+            backgroundImage: `url("${DITHER_BANNER}")`,
+            backgroundRepeat: "repeat-x",
+            backgroundSize: `8px ${DITHER_BANNER_HEIGHT}px`,
+          } as ViewStyle}
+        />
+      ) : (
+        <Image source={{ uri: DITHER_BANNER }} resizeMode="repeat" style={{ width: "100%", height: "100%" }} />
+      )}
+    </View>
+  );
+}
+
 export function CaseRow({ children }: { children: React.ReactNode }) {
   const frame = useRef({ x: 0, content: 0, layout: 0 });
   const [edges, setEdges] = useState({ left: false, right: false });
@@ -279,6 +306,7 @@ export function StickyAdd({ onPress }: { onPress: () => void }) {
         left: 16,
         right: 16,
         bottom: framed ? 16 : Math.max(insets.bottom, 16),
+        zIndex: 3,
         backgroundColor: RED,
         borderWidth: 3,
         borderColor: INK,
@@ -342,12 +370,4 @@ export function CornerAction({ label, onPress }: { label: string; onPress: () =>
       <Text style={{ color: "#FFFFFF", fontFamily: DISPLAY, fontSize: 18, letterSpacing: 0.6, textTransform: "uppercase" }}>{label}</Text>
     </Tap>
   );
-}
-
-export function formatLabel(format: Format) {
-  return format === "physical" ? "Physical" : "Digital";
-}
-
-export function formatsLine(formats: Format[]) {
-  return [...formats].sort().map(formatLabel).join(" · ");
 }

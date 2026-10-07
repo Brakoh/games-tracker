@@ -1,4 +1,4 @@
-import { coverImage } from "./cover-match";
+import { closestGame, coverImage } from "./cover-match";
 import { nameMatches } from "./name-match";
 import type { CatalogGame } from "./types";
 
@@ -134,6 +134,49 @@ export async function lookupCovers(items: CoverRequest[]) {
   }
 
   return covers;
+}
+
+export type GameDetails = {
+  developer?: string;
+  publisher?: string;
+  year?: number;
+  genres: string[];
+  banner?: string;
+};
+
+type IgdbDetails = {
+  name: string;
+  first_release_date?: number;
+  genres?: { name?: string }[];
+  screenshots?: { image_id?: string }[];
+  involved_companies?: { developer?: boolean; publisher?: boolean; company?: { name?: string } }[];
+};
+
+export async function lookupDetails(item: { title: string; platformId: string }): Promise<GameDetails | null> {
+  const platform = IGDB_PLATFORM[item.platformId];
+  const title = item.title.replace(/[\r\n]+/g, " ").trim().slice(0, 160);
+  if (!platform || !title) return null;
+  const payload = (await igdb(
+    "games",
+    [
+      `search ${quote(title)};`,
+      "fields name,first_release_date,genres.name,involved_companies.developer,involved_companies.publisher,involved_companies.company.name,screenshots.image_id;",
+      `where platforms = (${platform});`,
+      "limit 8;",
+    ].join(" "),
+  )) as IgdbDetails[];
+  const game = closestGame(item.title, Array.isArray(payload) ? payload : []);
+  if (!game) return null;
+  const companies = game.involved_companies ?? [];
+  const companyName = (role: "developer" | "publisher") => companies.find((entry) => entry[role])?.company?.name;
+  const bannerId = (game.screenshots ?? []).find((image) => image.image_id)?.image_id;
+  return {
+    banner: bannerId ? `https://images.igdb.com/igdb/image/upload/t_screenshot_huge/${bannerId}.jpg` : undefined,
+    developer: companyName("developer"),
+    publisher: companyName("publisher"),
+    year: game.first_release_date ? new Date(game.first_release_date * 1000).getUTCFullYear() : undefined,
+    genres: (game.genres ?? []).flatMap((genre) => (genre.name ? [genre.name] : [])).slice(0, 2),
+  };
 }
 
 const SWITCH2_PAGE = 40;

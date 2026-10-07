@@ -4,13 +4,13 @@ import { Text, View } from "react-native";
 import { useCaseCover } from "../../../src/case-cover";
 import { forgetCover } from "../../../src/cover-cache";
 import { findCopy } from "../../../src/collection";
-import { SkewTag, display } from "../../../src/components/bits";
-import { CaseFace, Phone, formatLabel } from "../../../src/components/chrome";
+import { display } from "../../../src/components/bits";
+import { Phone } from "../../../src/components/chrome";
+import { Checkbox, GameSheet } from "../../../src/components/game-sheet";
 import { Tap } from "../../../src/components/tap";
 import { platformById, platformsFor, menuPlatformId } from "../../../src/platforms";
 import { useCollection } from "../../../src/store";
-import { BODY, CARD, DISPLAY, INK, RED } from "../../../src/theme";
-import type { Format } from "../../../src/types";
+import { CARD, hardSm, INK, RED } from "../../../src/theme";
 
 export default function GameScreen() {
   const params = useLocalSearchParams<{ gameId: string; platformId: string; from?: string }>();
@@ -20,8 +20,7 @@ export default function GameScreen() {
   const catalog = useCollection((state) => state.catalog);
   const switch2RawgId = useCollection((state) => state.switch2RawgId);
   const toggleFinished = useCollection((state) => state.toggleFinished);
-  const addFormat = useCollection((state) => state.addFormat);
-  const removeFormat = useCollection((state) => state.removeFormat);
+  const removeCopy = useCollection((state) => state.removeCopy);
   const copy = findCopy(copies, gameId, platformId);
   const list = platformsFor(switch2RawgId);
   const title = catalog[gameId]?.title ?? gameId;
@@ -37,44 +36,22 @@ export default function GameScreen() {
     );
   }
 
-  const missing = (["physical", "digital"] as Format[]).filter((format) => !copy.formats.includes(format));
-
   return (
     <Phone title="Game" showBack onBack={() => router.replace(params.from === "home" ? "/" : `/shelf/${platformId}`)}>
-      <View style={{ padding: 16, gap: 14 }}>
-        <View style={{ width: 160 }}>
-          <CaseFace platformId={platformId} cover={front} />
-        </View>
-        <Text style={{ fontFamily: DISPLAY, fontSize: 28, lineHeight: 30, letterSpacing: 0.4, textTransform: "uppercase", color: INK }}>{title}</Text>
-        <Text style={{ fontFamily: BODY, fontSize: 12, letterSpacing: 1.2, textTransform: "uppercase", color: INK }}>{platformName}</Text>
-        {copy.formats.map((format) => (
-          <View key={format} style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-            <Text style={display(16)}>{formatLabel(format)}</Text>
-            <SkewTag
-              label="Remove"
-              onPress={() => {
-                const still = removeFormat(gameId, platformId, format);
-                if (!still) {
-                  void forgetCover(`${gameId}:${platformId}`);
-                  router.replace(`/shelf/${platformId}`);
-                }
-              }}
-            />
-          </View>
-        ))}
-        {missing.length > 0 && (
-          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
-            {missing.map((format) => (
-              <SkewTag key={format} label={format === "physical" ? "Add Physical" : "Add Digital"} onPress={() => addFormat(game, platformId, format)} />
-            ))}
-          </View>
-        )}
-        <View style={{ height: 3, backgroundColor: INK }} />
-        <Tap accessibilityLabel="Finished" onPress={() => toggleFinished(gameId, platformId)} style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-          <View style={{ width: 18, height: 18, borderWidth: 2, borderColor: INK, backgroundColor: copy.finished ? RED : CARD }} />
-          <Text style={display(18)}>Finished</Text>
+      <GameSheet title={title} platformId={platformId} platformName={platformName} cover={front} finished={copy.finished}>
+        <Checkbox label="Finished" checked={copy.finished} onPress={() => toggleFinished(gameId, platformId)} />
+        <Tap
+          accessibilityLabel="Remove"
+          onPress={() => {
+            removeCopy(gameId, platformId);
+            void forgetCover(`${gameId}:${platformId}`);
+            router.replace(`/shelf/${platformId}`);
+          }}
+          style={{ paddingVertical: 14, paddingHorizontal: 12, backgroundColor: CARD, borderWidth: 3, borderColor: INK, ...hardSm }}
+        >
+          <Text style={{ ...display(18), color: RED }}>Remove</Text>
         </Tap>
-      </View>
+      </GameSheet>
     </Phone>
   );
 }

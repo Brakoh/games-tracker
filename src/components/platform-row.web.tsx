@@ -38,16 +38,21 @@ const DragContext = createContext<DragApi | null>(null);
 export function PlatformList({
   ids,
   favoriteCount,
+  confirming = null,
   onReorder,
   children,
 }: {
   ids: string[];
   favoriteCount: number;
+  confirming?: string | null;
   onReorder: (fromId: string, toId: string) => void;
   children: ReactNode;
 }) {
   const [drag, setDrag] = useState<Drag | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
+  useEffect(() => {
+    if (confirming === null) setOpenId(null);
+  }, [confirming]);
   const dragRef = useRef<Drag | null>(null);
   const startY = useRef(0);
   const idsRef = useRef(ids);

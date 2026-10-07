@@ -56,7 +56,7 @@ export default function HomeScreen() {
         </View>
       ) : (
       <ScrollView showsVerticalScrollIndicator={false} showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 24 }}>
-        <PlatformList ids={activeIds} favoriteCount={favoriteCount} onReorder={reorder}>
+        <PlatformList ids={activeIds} favoriteCount={favoriteCount} confirming={pendingOff} onReorder={reorder}>
           {activeIds.map((id, index) => (
             <PlatformRow
               key={id}

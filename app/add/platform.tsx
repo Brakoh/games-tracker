@@ -29,7 +29,7 @@ export default function PlatformStep() {
           <ListRow
             key={platformId}
             label={platformById(list, platformId)?.name ?? platformId}
-            onPress={() => router.push(`/add/format?gameId=${id}&platformId=${possessionId(game?.platforms ?? [], platformId, copies, id)}&depth=2`)}
+            onPress={() => router.push(`/add/confirm?gameId=${id}&platformId=${possessionId(game?.platforms ?? [], platformId, copies, id)}&depth=2`)}
           />
         ))}
       </View>

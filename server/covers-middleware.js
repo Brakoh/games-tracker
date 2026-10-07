@@ -89,11 +89,39 @@ function switch2Handler(req, res) {
     });
 }
 
+function detailsHandler(req, res) {
+  readBody(req)
+    .then(async (raw) => {
+      const { igdbConfigured, lookupDetails } = igdbModule();
+      if (!igdbConfigured()) {
+        send(res, 200, { configured: false, details: null });
+        return;
+      }
+      let parsed = {};
+      try {
+        parsed = raw ? JSON.parse(raw) : {};
+      } catch {
+        send(res, 400, { configured: true, details: null });
+        return;
+      }
+      const title = typeof parsed.title === "string" ? parsed.title.slice(0, 200) : "";
+      const platformId = typeof parsed.platformId === "string" ? parsed.platformId.slice(0, 40) : "";
+      send(res, 200, { configured: true, details: title && platformId ? await lookupDetails({ title, platformId }) : null });
+    })
+    .catch(() => {
+      if (!res.writableEnded) send(res, 502, { configured: true, details: null });
+    });
+}
+
 function coversMiddleware(metroMiddleware) {
   return (req, res, next) => {
     const path = String(req.url || "").split("?")[0];
     if (req.method === "POST" && path === "/covers") {
       coversHandler(req, res);
+      return;
+    }
+    if (req.method === "POST" && path === "/details") {
+      detailsHandler(req, res);
       return;
     }
     if (req.method === "POST" && path === "/switch-2") {

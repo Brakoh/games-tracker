@@ -1,12 +1,12 @@
 import { isSwitch, menuPlatformId, systemIds } from "./platforms";
-import type { CatalogGame, Copy, Format, SortMode } from "./types";
+import type { CatalogGame, Copy, SortMode } from "./types";
 
 export function owns(copies: Copy[], gameId: string) {
-  return copies.some((copy) => copy.gameId === gameId && copy.formats.length > 0);
+  return copies.some((copy) => copy.gameId === gameId);
 }
 
 export function findCopy(copies: Copy[], gameId: string, platformId: string) {
-  return copies.find((copy) => copy.gameId === gameId && copy.platformId === platformId && copy.formats.length > 0);
+  return copies.find((copy) => copy.gameId === gameId && copy.platformId === platformId);
 }
 
 export function sortCopies(copies: Copy[], mode: SortMode, titleOf: (gameId: string) => string, platformOf: (id: string) => string) {
@@ -33,34 +33,21 @@ export function canAdd(game: CatalogGame, platformId: string | null, active: Rec
     const key = menuPlatformId(id);
     groups.set(key, [...(groups.get(key) ?? []), id]);
   }
-  return [...groups.values()].some((ids) => {
-    const owned = copies.filter((copy) => copy.gameId === game.id && ids.includes(copy.platformId) && copy.formats.length > 0);
-    if (owned.length === 0) return true;
-    return owned.some((copy) => copy.formats.length < 2);
-  });
+  return [...groups.values()].some((ids) => !copies.some((copy) => copy.gameId === game.id && ids.includes(copy.platformId)));
 }
 
 export function possessionId(platforms: string[], menuId: string, copies: Copy[], gameId: string) {
   const ids = systemIds(menuId).filter((id) => platforms.includes(id));
-  const owned = copies.find((copy) => copy.gameId === gameId && ids.includes(copy.platformId) && copy.formats.length > 0);
+  const owned = copies.find((copy) => copy.gameId === gameId && ids.includes(copy.platformId));
   if (owned) return owned.platformId;
   return ids[0] ?? menuId;
 }
 
-export function withFormat(copies: Copy[], gameId: string, platformId: string, format: Format) {
-  const existing = findCopy(copies, gameId, platformId);
-  if (!existing) return [...copies, { gameId, platformId, formats: [format], finished: false }];
-  return copies.map((copy) =>
-    copy.gameId === gameId && copy.platformId === platformId
-      ? { ...copy, formats: copy.formats.includes(format) ? copy.formats : [...copy.formats, format] }
-      : copy,
-  );
+export function withCopy(copies: Copy[], gameId: string, platformId: string) {
+  if (findCopy(copies, gameId, platformId)) return copies;
+  return [...copies, { gameId, platformId, finished: false }];
 }
 
-export function withoutFormat(copies: Copy[], gameId: string, platformId: string, format: Format) {
-  return copies.flatMap((copy) => {
-    if (copy.gameId !== gameId || copy.platformId !== platformId) return [copy];
-    const formats = copy.formats.filter((item) => item !== format);
-    return formats.length ? [{ ...copy, formats }] : [];
-  });
+export function withoutCopy(copies: Copy[], gameId: string, platformId: string) {
+  return copies.filter((copy) => copy.gameId !== gameId || copy.platformId !== platformId);
 }

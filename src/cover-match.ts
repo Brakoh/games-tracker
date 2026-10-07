@@ -8,6 +8,19 @@ function words(value: string) {
     .filter((word) => word.length > 0 && word !== "the");
 }
 
+export function closestGame<T extends { name: string }>(title: string, games: T[]) {
+  const want = words(title);
+  if (want.length === 0) return null;
+  const ranked = games.flatMap((game) => {
+    const got = words(game.name);
+    if (!want.every((word) => got.includes(word))) return [];
+    return [{ game, extra: got.filter((word) => !want.includes(word)).length }];
+  });
+  ranked.sort((a, b) => a.extra - b.extra);
+  const best = ranked[0];
+  return best && best.extra <= 1 ? best.game : null;
+}
+
 function imageIdOf(cover: { image_id?: string } | number | undefined) {
   return typeof cover === "object" ? cover.image_id : undefined;
 }

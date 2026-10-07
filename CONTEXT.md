@@ -1,6 +1,6 @@
 # Collezione giochi
 
-La collezione personale dei videogiochi che una persona possiede adesso: la piattaforma, il formato fisico o digitale, e se su quella piattaforma il gioco è finito. I desideri si raggiungono dalle impostazioni.
+La collezione personale dei videogiochi che una persona possiede adesso: su quale piattaforma, e se su quella piattaforma il gioco è finito. Fisico o digitale non conta e l'app non lo chiede. I desideri si raggiungono dalle impostazioni.
 
 ## Language
 
@@ -17,7 +17,7 @@ Una piattaforma da tavolo o portatile, di qualsiasi generazione.
 _Avoid_: PC, telefono
 
 **PC**:
-La piattaforma computer, Steam Deck compreso. Un negozio non è una piattaforma: Steam, GOG o un disco sono solo il formato digitale o fisico su PC.
+La piattaforma computer, Steam Deck compreso. Un negozio non è una piattaforma: Steam, GOG o un disco sono tutti semplicemente PC.
 _Avoid_: Steam Deck, Mac, Linux
 
 **Piattaforma attiva**:
@@ -28,16 +28,12 @@ _Avoid_: Eliminare, filtro, piattaforma abilitata
 PlayStation 5, Xbox Series S/X, Nintendo Switch e PC, in quest'ordine in cima al menu per attivarle. Nintendo Switch 2 vi entra, prima di Nintendo Switch, solo se il catalogo la elenca come piattaforma propria.
 _Avoid_: Ultima generazione
 
-**Formato**:
-Il modo in cui il gioco è posseduto su una piattaforma: fisico o digitale. Sull'app le scritte sono Physical e Digital.
-_Avoid_: Supporto, versione, edizione
-
 **Possesso**:
-Avere quel gioco su una piattaforma su cui è uscito, in un formato. Sulla stessa piattaforma puoi avere il fisico e il digitale; due copie fisiche uguali sono un solo possesso.
-_Avoid_: Pezzo, duplicato, quantità
+Avere quel gioco su una piattaforma su cui è uscito. Si aggiunge con Add game e si toglie con Remove. Fisico o digitale, una o più copie: è sempre un solo possesso.
+_Avoid_: Pezzo, duplicato, quantità, formato, fisico, digitale
 
 **Finito**:
-Il segno, messo da te, che quel gioco su quella piattaforma è finito. Fisico e digitale lo condividono; se non resta nessun possesso, il segno sparisce. Sull'app la scritta è Finished.
+Il segno, messo da te, che quel gioco su quella piattaforma è finito. Se togli il possesso, il segno sparisce. Sull'app la scritta è Finished.
 _Avoid_: Completato, percentuale, voto, ore, stato, backlog
 
 **Collezione**:

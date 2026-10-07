@@ -2,9 +2,60 @@ import { useEffect, useRef, useState } from "react";
 import { Animated, Easing, Image, Platform, Text, TextInput, View, type TextStyle, type ViewStyle } from "react-native";
 import { SvgXml } from "react-native-svg";
 
+import { CAMERA_RATIO, CAMERA_XML } from "../camera-icon";
+import { FINISHED_ROSETTE_XML, FINISHED_XML } from "../finished-badge";
 import { BODY, CARD, DISPLAY, hard, hardSm, INK, PAPER, RED, YELLOW } from "../theme";
 import { WINDOWS_LOGO, WINDOWS_XML } from "../windows-logo";
 import { Tap } from "./tap";
+
+export function MissingCover({ width }: { width: number }) {
+  return (
+    <View pointerEvents="none" style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0, alignItems: "center", justifyContent: "center" }}>
+      <SvgXml xml={CAMERA_XML} width={width} height={width * CAMERA_RATIO} />
+    </View>
+  );
+}
+
+export function FinishedRosette({ size, inset }: { size: number; inset: number }) {
+  return (
+    <View
+      pointerEvents="none"
+      style={{ position: "absolute", top: inset, left: inset, zIndex: 2, transform: [{ rotate: "-20deg" }] }}
+    >
+      <SvgXml xml={FINISHED_ROSETTE_XML} width={size} height={size} />
+    </View>
+  );
+}
+
+const BADGE = 27.28;
+
+export function FinishedBadge({ size = BADGE, inset }: { size?: number; inset: number }) {
+  return (
+    <View
+      pointerEvents="none"
+      style={{
+        position: "absolute",
+        top: inset,
+        left: inset,
+        zIndex: 2,
+        width: BADGE,
+        height: BADGE,
+        transformOrigin: "top left",
+        transform: [{ scale: size / BADGE }],
+        alignItems: "center",
+        justifyContent: "center",
+        backgroundColor: PAPER,
+        borderWidth: 1.5,
+        borderColor: "#000000",
+        boxShadow: "2px 2px 0 0 #000000",
+      }}
+    >
+      <View style={{ transform: [{ rotate: "-7.04deg" }] }}>
+        <SvgXml xml={FINISHED_XML} width={22.3274} height={22.3062} />
+      </View>
+    </View>
+  );
+}
 
 export function SkewTag({
   label,

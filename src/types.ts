@@ -1,4 +1,3 @@
-export type Format = "physical" | "digital";
 export type SortMode = "alpha" | "open" | "done";
 
 export type CatalogGame = {
@@ -11,7 +10,6 @@ export type CatalogGame = {
 export type Copy = {
   gameId: string;
   platformId: string;
-  formats: Format[];
   finished: boolean;
 };
 

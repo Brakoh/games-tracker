@@ -82,7 +82,7 @@ export default function PlatformsScreen() {
                   : null),
               }}
             >
-              <Text style={{ fontFamily: BODY, fontSize: 12, letterSpacing: 0.6, color: INK }}>next gen</Text>
+              <Text style={{ alignSelf: "flex-start", paddingHorizontal: 4, marginLeft: -4, backgroundColor: "#E7E2D2", fontFamily: BODY, fontSize: 12, letterSpacing: 0.6, color: INK }}>next gen</Text>
               <PlatformGrid platforms={nextGen} draft={draft} copies={copies} onToggle={toggle} columns={4} />
             </View>
           ) : null}

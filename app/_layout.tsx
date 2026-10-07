@@ -18,7 +18,6 @@ function CoverJanitor() {
   const copies = useCollection((state) => state.copies);
   const client = useQueryClient();
   const keep = copies
-    .filter((copy) => copy.formats.length > 0)
     .map((copy) => `${copy.gameId}:${copy.platformId}`)
     .sort()
     .join("\n");
@@ -40,7 +39,9 @@ function CoverJanitor() {
 
 function useTouchFullscreen() {
   useEffect(() => {
-    if (Platform.OS !== "web" || typeof document === "undefined") return;
+    if (Platform.OS !== "web" || typeof document === "undefined" || __DEV__) return;
+    const emulated = /Android|iPhone/.test(navigator.userAgent) && /^(Mac|Win)/.test(navigator.platform);
+    if (emulated) return;
     const root = document.documentElement;
     if (!root.requestFullscreen || !window.matchMedia("(pointer: coarse)").matches) return;
     const enter = () => {

@@ -1,4 +1,4 @@
-import { igdbConfigured, lookupCovers, setIgdbCredentials, switch2Catalog, type CoverRequest } from "../src/igdb";
+import { igdbConfigured, lookupCovers, lookupDetails, setIgdbCredentials, switch2Catalog, type CoverRequest } from "../src/igdb";
 
 type Env = {
   TWITCH_CLIENT_ID?: string;
@@ -52,6 +52,13 @@ export default {
         const parsed = (await request.json()) as { items?: unknown };
         const covers = await lookupCovers(asCoverRequests(parsed.items).slice(0, 40));
         return json({ configured: true, covers });
+      }
+      if (path.endsWith("/details")) {
+        if (!igdbConfigured()) return json({ configured: false, details: null });
+        const parsed = (await request.json().catch(() => ({}))) as { title?: unknown; platformId?: unknown };
+        const title = typeof parsed.title === "string" ? parsed.title.slice(0, 200) : "";
+        const platformId = typeof parsed.platformId === "string" ? parsed.platformId.slice(0, 40) : "";
+        return json({ configured: true, details: title && platformId ? await lookupDetails({ title, platformId }) : null });
       }
       if (path.endsWith("/switch-2")) {
         if (!igdbConfigured()) return json({ configured: false, games: [], nextPage: undefined });
