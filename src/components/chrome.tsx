@@ -1,10 +1,10 @@
-import { useRef, useState } from "react";
-import { Image, Platform, ScrollView, Text, useWindowDimensions, View, type ViewStyle } from "react-native";
+import { useEffect, useRef, useState } from "react";
+import { Animated, Easing, Image, Modal, Platform, Pressable, ScrollView, Text, useWindowDimensions, View, type ViewStyle } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useCaseCover } from "../case-cover";
 import { useCollection } from "../store";
-import { BODY, CARD, DISPLAY, hard, hardSm, INK, RED } from "../theme";
+import { BODY, CARD, DISPLAY, hard, hardSm, INK, PAPER, RED } from "../theme";
 import type { Copy, SortMode } from "../types";
 import { FinishedBadge, MissingCover, SkewTag } from "./bits";
 import { PressShade, Tap } from "./tap";
@@ -24,9 +24,11 @@ export function Phone({
   showSettings,
   onSettings,
   footer,
+  bare,
   children,
 }: {
-  title: string;
+  title?: string;
+  bare?: boolean;
   kicker?: string;
   showBack?: boolean;
   onBack?: () => void;
@@ -51,6 +53,7 @@ export function Phone({
         }}
       >
         <Notebook>
+          {bare ? null : (
           <View
             className="flex-row items-center gap-2 bg-paper px-3 pb-2"
             style={{
@@ -68,6 +71,7 @@ export function Phone({
             {showBack && onBack ? <SkewTag label="Back" onPress={onBack} /> : null}
             {showSettings && onSettings ? <SkewTag label="Settings" onPress={onSettings} /> : null}
           </View>
+          )}
           <View className="flex-1">{children}</View>
           {footer}
         </Notebook>
@@ -89,6 +93,94 @@ function Notebook({ children }: { children: React.ReactNode }) {
       </View>
       {children}
     </View>
+  );
+}
+
+export function ConfirmDialog({
+  visible,
+  title,
+  note,
+  onCancel,
+  onConfirm,
+}: {
+  visible: boolean;
+  title: string;
+  note: string;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onCancel}>
+      <View style={{ flex: 1, alignItems: "center", justifyContent: "center", padding: 28, backgroundColor: "rgba(12,11,8,0.78)" }}>
+        <Pressable accessibilityLabel="Cancel" onPress={onCancel} style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0 }} />
+        <View style={{ width: "100%", maxWidth: 320, backgroundColor: CARD, borderWidth: 3, borderColor: INK, ...hard, padding: 16, gap: 14 }}>
+          <Text style={{ fontFamily: DISPLAY, fontSize: 22, lineHeight: 26, letterSpacing: 0.4, textTransform: "uppercase", color: INK }}>{title}</Text>
+          <Text style={{ fontFamily: BODY, fontSize: 13, lineHeight: 18, color: INK }}>{note}</Text>
+          <View style={{ flexDirection: "row", gap: 10 }}>
+            <Tap
+              accessibilityLabel="Cancel"
+              onPress={onCancel}
+              style={{ flex: 1, alignItems: "center", borderWidth: 3, borderColor: INK, backgroundColor: CARD, ...hard, paddingVertical: 8 }}
+            >
+              <Text style={{ fontFamily: DISPLAY, fontSize: 16, letterSpacing: 0.4, color: INK }}>CANCEL</Text>
+            </Tap>
+            <Tap
+              accessibilityLabel="Yes"
+              onPress={onConfirm}
+              style={{ flex: 1, alignItems: "center", borderWidth: 3, borderColor: INK, backgroundColor: RED, ...hard, paddingVertical: 8 }}
+            >
+              <Text style={{ fontFamily: DISPLAY, fontSize: 16, letterSpacing: 0.4, color: "#FFFFFF" }}>YES</Text>
+            </Tap>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+export function BottomSheet({ visible, onClose, children }: { visible: boolean; onClose: () => void; children: React.ReactNode }) {
+  const insets = useSafeAreaInsets();
+  const framed = useFramed();
+  const [mounted, setMounted] = useState(visible);
+  const [height, setHeight] = useState(600);
+  const progress = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (visible) {
+      setMounted(true);
+      Animated.timing(progress, { toValue: 1, duration: 240, easing: Easing.out(Easing.cubic), useNativeDriver: Platform.OS !== "web" }).start();
+      return;
+    }
+    Animated.timing(progress, { toValue: 0, duration: 180, easing: Easing.in(Easing.cubic), useNativeDriver: Platform.OS !== "web" }).start(({ finished }) => {
+      if (finished) setMounted(false);
+    });
+  }, [visible, progress]);
+
+  return (
+    <Modal visible={mounted} transparent animationType="none" onRequestClose={onClose}>
+      <View style={{ flex: 1, justifyContent: "flex-end" }}>
+        <Animated.View style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0, backgroundColor: "rgba(12,11,8,0.5)", opacity: progress }}>
+          <Pressable accessibilityLabel="Close" onPress={onClose} style={{ flex: 1 }} />
+        </Animated.View>
+        <Animated.View
+          onLayout={({ nativeEvent }) => setHeight(nativeEvent.layout.height)}
+          style={{
+            width: "100%",
+            maxWidth: framed ? 420 : undefined,
+            alignSelf: "center",
+            backgroundColor: PAPER,
+            borderTopWidth: 3,
+            borderColor: INK,
+            padding: 16,
+            paddingBottom: Math.max(insets.bottom, 16) + 8,
+            gap: 10,
+            transform: [{ translateY: progress.interpolate({ inputRange: [0, 1], outputRange: [height, 0] }) }],
+          }}
+        >
+          {children}
+        </Animated.View>
+      </View>
+    </Modal>
   );
 }
 

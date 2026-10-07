@@ -1,16 +1,14 @@
 import { Redirect, router } from "expo-router";
 import { useState } from "react";
-import { Modal, Pressable, ScrollView, Text, View } from "react-native";
-
-import { Tap } from "../src/components/tap";
+import { ScrollView, Text, View } from "react-native";
 
 import { EmptyNote, PlusButton } from "../src/components/bits";
-import { CaseRow, CaseTile, Phone } from "../src/components/chrome";
+import { CaseRow, CaseTile, ConfirmDialog, Phone } from "../src/components/chrome";
 import { PlatformList, PlatformRow } from "../src/components/platform-row";
 import { sortCopies } from "../src/collection";
 import { platformById, platformsFor, menuPlatformId, systemIds, shownOrder } from "../src/platforms";
 import { useCollection } from "../src/store";
-import { BODY, CARD, DISPLAY, hard, INK, RED } from "../src/theme";
+import { DISPLAY, INK } from "../src/theme";
 
 export default function HomeScreen() {
   const onboarded = useCollection((state) => state.onboarded);
@@ -111,36 +109,16 @@ export default function HomeScreen() {
         )}
       </ScrollView>
       )}
-      <Modal visible={pendingOff !== null} transparent animationType="fade" onRequestClose={() => setPendingOff(null)}>
-        <View style={{ flex: 1, alignItems: "center", justifyContent: "center", padding: 28, backgroundColor: "rgba(12,11,8,0.78)" }}>
-          <Pressable accessibilityLabel="Cancel" onPress={() => setPendingOff(null)} style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0 }} />
-          <View style={{ width: "100%", maxWidth: 320, backgroundColor: CARD, borderWidth: 3, borderColor: INK, ...hard, padding: 16, gap: 14 }}>
-            <Text style={{ fontFamily: DISPLAY, fontSize: 22, lineHeight: 26, letterSpacing: 0.4, textTransform: "uppercase", color: INK }}>
-              Are you sure you want to disable this category?
-            </Text>
-            <Text style={{ fontFamily: BODY, fontSize: 13, lineHeight: 18, color: INK }}>You can turn it back on from the system edit menu.</Text>
-            <View style={{ flexDirection: "row", gap: 10 }}>
-              <Tap
-                accessibilityLabel="Cancel"
-                onPress={() => setPendingOff(null)}
-                style={{ flex: 1, alignItems: "center", borderWidth: 3, borderColor: INK, backgroundColor: CARD, ...hard, paddingVertical: 8 }}
-              >
-                <Text style={{ fontFamily: DISPLAY, fontSize: 16, letterSpacing: 0.4, color: INK }}>CANCEL</Text>
-              </Tap>
-              <Tap
-                accessibilityLabel="Yes"
-                onPress={() => {
-                  if (pendingOff) turnOff(pendingOff);
-                  setPendingOff(null);
-                }}
-                style={{ flex: 1, alignItems: "center", borderWidth: 3, borderColor: INK, backgroundColor: RED, ...hard, paddingVertical: 8 }}
-              >
-                <Text style={{ fontFamily: DISPLAY, fontSize: 16, letterSpacing: 0.4, color: "#FFFFFF" }}>YES</Text>
-              </Tap>
-            </View>
-          </View>
-        </View>
-      </Modal>
+      <ConfirmDialog
+        visible={pendingOff !== null}
+        title="Are you sure you want to disable this category?"
+        note="You can turn it back on from the system edit menu."
+        onCancel={() => setPendingOff(null)}
+        onConfirm={() => {
+          if (pendingOff) turnOff(pendingOff);
+          setPendingOff(null);
+        }}
+      />
     </Phone>
   );
 }

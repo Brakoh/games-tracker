@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 
 import { readCover, rememberCover } from "./cover-cache";
 import { collectionDoor } from "./door";
+import { useCollection } from "./store";
 
 type CoverResponse = {
   configured?: boolean;
@@ -88,12 +89,35 @@ async function ownedCover(key: string, title: string, platformId: string) {
   }
 }
 
-export function useCaseCover(gameId: string, platformId: string, title: string) {
+export function bannerKey(gameId: string, platformId: string) {
+  return `banner:${gameId}:${platformId}`;
+}
+
+export function useSavedBanner(key: string | undefined, remote: string | undefined) {
   const query = useQuery({
-    queryKey: ["case-cover", gameId, platformId, title],
-    queryFn: () => ownedCover(`${gameId}:${platformId}`, title, platformId),
+    queryKey: ["saved-banner", key, remote ?? null],
+    queryFn: async () => {
+      const saved = await readCover(key!).catch(() => null);
+      if (saved || !remote) return saved;
+      return (await rememberCover(key!, remote).catch(() => null)) ?? remote;
+    },
     staleTime: Infinity,
     gcTime: Infinity,
+    networkMode: "always",
+    enabled: Boolean(key),
+  });
+  return query.data || undefined;
+}
+
+const PASSING_GC = 60_000;
+
+export function useCaseCover(gameId: string, platformId: string, title: string) {
+  const owned = useCollection((state) => state.copies.some((copy) => copy.gameId === gameId && copy.platformId === platformId));
+  const query = useQuery({
+    queryKey: [owned ? "case-cover" : "passing-cover", gameId, platformId, title],
+    queryFn: () => (owned ? ownedCover : loadCaseCover)(`${gameId}:${platformId}`, title, platformId),
+    staleTime: Infinity,
+    gcTime: owned ? Infinity : PASSING_GC,
     retry: 2,
     networkMode: "always",
     enabled: title.trim().length > 0,

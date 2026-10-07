@@ -1,14 +1,10 @@
 import { router, useLocalSearchParams } from "expo-router";
-import { Text } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useCaseCover } from "../../src/case-cover";
-import { Phone, useFramed } from "../../src/components/chrome";
-import { GameSheet } from "../../src/components/game-sheet";
-import { Tap } from "../../src/components/tap";
+import { Phone } from "../../src/components/chrome";
+import { AddButton, GameSheet } from "../../src/components/game-sheet";
 import { platformById, platformsFor, menuPlatformId } from "../../src/platforms";
 import { useCollection } from "../../src/store";
-import { DISPLAY, hard, INK, RED } from "../../src/theme";
 
 export default function ConfirmStep() {
   const params = useLocalSearchParams<{ gameId: string; platformId: string; depth?: string }>();
@@ -27,7 +23,8 @@ export default function ConfirmStep() {
       showBack
       onBack={() => router.back()}
       footer={
-        <AddGame
+        <AddButton
+          label="Add game"
           onPress={() => {
             addCopy(game, platformId);
             router.dismiss(Number(params.depth) === 2 ? 2 : 1);
@@ -35,33 +32,7 @@ export default function ConfirmStep() {
         />
       }
     >
-      <GameSheet title={game.title} platformId={platformId} platformName={name} cover={front} />
+      <GameSheet title={game.title} platformId={platformId} platformName={name} cover={front} bottomSpace={110} />
     </Phone>
-  );
-}
-
-function AddGame({ onPress }: { onPress: () => void }) {
-  const insets = useSafeAreaInsets();
-  const framed = useFramed();
-  return (
-    <Tap
-      accessibilityLabel="Add game"
-      onPress={onPress}
-      style={{
-        position: "absolute",
-        left: 16,
-        right: 16,
-        bottom: framed ? 16 : Math.max(insets.bottom, 16),
-        zIndex: 3,
-        backgroundColor: RED,
-        borderWidth: 3,
-        borderColor: INK,
-        ...hard,
-        paddingVertical: 14,
-        alignItems: "center",
-      }}
-    >
-      <Text style={{ color: "#FFFFFF", fontFamily: DISPLAY, fontSize: 18, letterSpacing: 0.6, textTransform: "uppercase" }}>Add game</Text>
-    </Tap>
   );
 }

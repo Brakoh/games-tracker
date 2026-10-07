@@ -142,12 +142,18 @@ export type GameDetails = {
   year?: number;
   genres: string[];
   banner?: string;
+  summary?: string;
+  related: { id: string; title: string; cover: string }[];
+  platforms: { id?: string; name: string }[];
 };
 
 type IgdbDetails = {
   name: string;
   first_release_date?: number;
+  summary?: string;
+  platforms?: { id?: number; name?: string }[];
   genres?: { name?: string }[];
+  similar_games?: { id?: number; name?: string; platforms?: number[]; cover?: { image_id?: string } }[];
   screenshots?: { image_id?: string }[];
   involved_companies?: { developer?: boolean; publisher?: boolean; company?: { name?: string } }[];
 };
@@ -160,7 +166,7 @@ export async function lookupDetails(item: { title: string; platformId: string })
     "games",
     [
       `search ${quote(title)};`,
-      "fields name,first_release_date,genres.name,involved_companies.developer,involved_companies.publisher,involved_companies.company.name,screenshots.image_id;",
+      "fields name,first_release_date,summary,platforms.name,genres.name,involved_companies.developer,involved_companies.publisher,involved_companies.company.name,screenshots.image_id,similar_games.name,similar_games.platforms,similar_games.cover.image_id;",
       `where platforms = (${platform});`,
       "limit 8;",
     ].join(" "),
@@ -171,6 +177,23 @@ export async function lookupDetails(item: { title: string; platformId: string })
   const companyName = (role: "developer" | "publisher") => companies.find((entry) => entry[role])?.company?.name;
   const bannerId = (game.screenshots ?? []).find((image) => image.image_id)?.image_id;
   return {
+    platforms: (game.platforms ?? []).flatMap((entry) =>
+      entry.name ? [{ id: Object.keys(IGDB_PLATFORM).find((id) => IGDB_PLATFORM[id] === entry.id), name: entry.name }] : [],
+    ),
+    summary: game.summary?.trim() || undefined,
+    related: (game.similar_games ?? [])
+      .flatMap((similar) =>
+        similar.id && similar.name && similar.cover?.image_id && similar.platforms?.includes(platform)
+          ? [
+              {
+                id: `igdb-${similar.id}`,
+                title: similar.name,
+                cover: `https://images.igdb.com/igdb/image/upload/t_cover_big/${similar.cover.image_id}.jpg`,
+              },
+            ]
+          : [],
+      )
+      .slice(0, 6),
     banner: bannerId ? `https://images.igdb.com/igdb/image/upload/t_screenshot_huge/${bannerId}.jpg` : undefined,
     developer: companyName("developer"),
     publisher: companyName("publisher"),

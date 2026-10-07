@@ -6,7 +6,7 @@ Vittorio è il designer di questo prodotto. Decide cosa fa l'app. Non è un prog
 
 Parla in italiano, con parole da designer: schermate, flussi, etichette, raccolte. I termini del prodotto sono in [CONTEXT.md](CONTEXT.md).
 
-Le scritte dentro l'app sono in inglese: Skip, Continue, Add a game, Settings, Wishes, Add systems, Edit systems, Finished, Remove. Con Vittorio citale così, e spiegale in italiano.
+Le scritte dentro l'app sono in inglese: Skip, Continue, Add a game, Settings, Wishes, Add systems, Edit systems, Finished, Currently playing, Complete, Remove from library. Con Vittorio citale così, e spiegale in italiano.
 
 Un termine nuovo si propone in italiano semplice. Entra nel glossario solo dopo la sua conferma.
 
@@ -20,7 +20,8 @@ Schermate (cartella `app/`):
 
 - **Home** (`index.tsx`): una riga per piattaforma attiva, con le copertine che scorrono di lato. Una riga si fa scorrere per spegnere la piattaforma (con conferma; Cancel la rimette a posto). Edit systems porta a Systems.
 - **Scaffale** (`shelf/[platformId].tsx`): i giochi di una piattaforma, a griglia o a lista, con Add a game in basso.
-- **Scheda del gioco** (`game/[gameId]/[platformId].tsx`) e **Add a game → conferma** (`add/confirm.tsx`) hanno lo stesso aspetto (`src/components/game-sheet.tsx`): screenshot largo in alto che sfuma con il dither, informazioni a sinistra, copertina a destra. Sotto, nella conferma c'è solo Add game; nella scheda, Finished e Remove. Cambiarne una cambia anche l'altra.
+- **Scheda del gioco** (`game/[gameId]/[platformId].tsx`) e **Add a game → conferma** (`add/confirm.tsx`) hanno lo stesso aspetto (`src/components/game-sheet.tsx`): screenshot largo in alto che sfuma con il dither, informazioni a sinistra, copertina a destra. Nella conferma sotto c'è solo Add game. La scheda non ha barra in alto: Back a sinistra e un tasto a tre quadratini a destra galleggiano sullo screenshot; il tasto apre un menu dal basso con Currently playing e Complete (si escludono a vicenda) e Remove from library, che chiede conferma con la stessa finestra usata per spegnere una piattaforma (`ConfirmDialog`). Cambiare l'aspetto di una delle due schermate cambia anche l'altra. Nelle informazioni c'è Platforms con tutte le console su cui il gioco è uscito, poi la descrizione (About) e, solo per i giochi in libreria, Featured games: fino a 6 titoli simili della stessa console presi da IGDB, che aprono la loro scheda. Un gioco non in libreria aperto da lì non mostra Featured games né il menu, ma il tasto rosso Add to library.
+- **Immagini**: copertina e screenshot dei giochi in libreria si salvano sul dispositivo e si scaricano una volta sola; si cancellano quando il gioco esce dalla libreria. Quelle dei giochi non in libreria restano solo temporanee e non si salvano.
 - **Add a game** (`add/index.tsx` ricerca, `add/platform.tsx` scelta piattaforma): ricerca nel catalogo; i giochi con lo stesso titolo compaiono una volta sola, preferendo quello già in collezione.
 - **Systems** (`platforms.tsx`), **Settings** (`settings.tsx`), **Wishes** (`wishes.tsx`).
 
@@ -30,7 +31,7 @@ Stile: carta a righe, inchiostro nero, rosso per le azioni, ombre nette spostate
 
 - **La collezione** vive solo sul dispositivo (memoria del browser, chiave `collection-v2`). Ogni dispositivo ha la sua. Non va mai cancellata né azzerata, nemmeno per fare prove.
 - **Il catalogo** per cercare i giochi è RAWG (chiave in `.env`).
-- **Copertine, informazioni (sviluppatore, editore, anno, genere) e screenshot** arrivano da IGDB attraverso la **porta**: un piccolo server che custodisce le credenziali Twitch. In locale la porta gira dentro il server di sviluppo (`server/covers-middleware.js`); online è un worker Cloudflare (`server/worker.ts`, `wrangler.toml`, indirizzo in `src/door.ts`). Quando cambi `src/igdb.ts` o la porta, riavvia il server di sviluppo; per il sito pubblico serve `npx wrangler deploy`, da fare solo se Vittorio lo chiede.
+- **Copertine, informazioni (sviluppatore, editore, anno, genere) e screenshot** arrivano da IGDB attraverso la **porta**: un piccolo server che custodisce le credenziali Twitch. In locale la porta gira dentro il server di sviluppo (`server/covers-middleware.js`); online è un worker Cloudflare (`server/worker.ts`, `wrangler.toml`, indirizzo in `src/door.ts`). Quando cambi `src/igdb.ts` o la porta, riavvia il server di sviluppo e aggiorna subito anche la porta pubblica con `npx wrangler deploy`, in automatico: Vittorio non vuole che glielo si chieda.
 - Le credenziali (`.env`, `TWITCH_CLIENT_ID`, `TWITCH_CLIENT_SECRET`) non si stampano mai e non entrano mai nel sito pubblicato.
 
 ## Provare l'app

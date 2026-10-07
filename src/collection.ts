@@ -9,6 +9,15 @@ export function findCopy(copies: Copy[], gameId: string, platformId: string) {
   return copies.find((copy) => copy.gameId === gameId && copy.platformId === platformId);
 }
 
+export function titleKey(title: string) {
+  return title.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
+}
+
+export function copyByTitle(copies: Copy[], catalog: Record<string, CatalogGame>, title: string, platformId: string) {
+  const key = titleKey(title);
+  return copies.find((copy) => copy.platformId === platformId && titleKey(catalog[copy.gameId]?.title ?? "") === key);
+}
+
 export function sortCopies(copies: Copy[], mode: SortMode, titleOf: (gameId: string) => string, platformOf: (id: string) => string) {
   const titled = copies.map((copy) => ({
     copy,

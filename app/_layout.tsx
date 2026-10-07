@@ -6,6 +6,7 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { Platform, View } from "react-native";
 
+import { bannerKey } from "../src/case-cover";
 import { pruneCovers } from "../src/cover-cache";
 import { useCollection, useHydrated } from "../src/store";
 import { PAPER } from "../src/theme";
@@ -25,11 +26,13 @@ function CoverJanitor() {
   useEffect(() => {
     const keys = keep ? keep.split("\n") : [];
     const owned = new Set(keys);
-    void pruneCovers(keys);
+    const banners = new Set(keys.map((key) => bannerKey(...(key.split(":") as [string, string]))));
+    void pruneCovers([...keys, ...banners]);
     client.removeQueries({
       predicate: (query) => {
-        const [kind, gameId, platformId] = query.queryKey;
-        return kind === "case-cover" && !owned.has(`${String(gameId)}:${String(platformId)}`);
+        const [kind, first, second] = query.queryKey;
+        if (kind === "saved-banner") return !banners.has(String(first));
+        return kind === "case-cover" && !owned.has(`${String(first)}:${String(second)}`);
       },
     });
   }, [keep, client]);

@@ -29,6 +29,7 @@ type CollectionState = {
   setShelfView: (shelfView: "grid" | "list") => void;
   remember: (game: CatalogGame) => void;
   toggleFinished: (gameId: string, platformId: string) => void;
+  togglePlaying: (gameId: string, platformId: string) => void;
   addCopy: (game: CatalogGame, platformId: string) => void;
   removeCopy: (gameId: string, platformId: string) => void;
   addWish: (game: CatalogGame) => void;
@@ -163,7 +164,13 @@ export const useCollection = create<CollectionState>()(
       toggleFinished: (gameId, platformId) =>
         set({
           copies: get().copies.map((copy) =>
-            copy.gameId === gameId && copy.platformId === platformId ? { ...copy, finished: !copy.finished } : copy,
+            copy.gameId === gameId && copy.platformId === platformId ? { ...copy, finished: !copy.finished, playing: false } : copy,
+          ),
+        }),
+      togglePlaying: (gameId, platformId) =>
+        set({
+          copies: get().copies.map((copy) =>
+            copy.gameId === gameId && copy.platformId === platformId ? { ...copy, playing: !copy.playing, finished: false } : copy,
           ),
         }),
       addCopy: (game, platformId) => {

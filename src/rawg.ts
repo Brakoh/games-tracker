@@ -38,7 +38,7 @@ export async function fetchCatalogPage(input: {
         .concat(allowed.has("switch-2") ? [SWITCH_RAWG_ID] : []),
     ),
   ];
-  const local = filterLocal(input.localGames, input.query, allowed);
+  const local = input.query.trim() ? filterLocal(input.localGames, input.query, allowed) : [];
   const key = rawgKey();
   if (!key || rawgIds.length === 0) {
     const games = (input.page === 1 ? local : []).filter(
@@ -81,7 +81,7 @@ export async function fetchCatalogPage(input: {
     const merged = [...games, ...(input.page === 1 ? local : [])].filter(
       (game, index, all) => all.findIndex((item) => item.id === game.id) === index,
     );
-    merged.sort((a, b) => a.title.localeCompare(b.title));
+    if (query) merged.sort((a, b) => a.title.localeCompare(b.title));
     return { games: merged, nextPage };
   } catch {
     return { games: input.page === 1 ? local : [], nextPage: undefined as number | undefined };
