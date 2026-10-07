@@ -1,4 +1,5 @@
-import { Image, ScrollView, Text, View } from "react-native";
+import { useRef } from "react";
+import { Animated, Platform, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useSavedBanner } from "../case-cover";
@@ -44,6 +45,7 @@ export function GameSheet({
   const bannerImage = saved ?? (bannerSaveKey ? undefined : info?.banner);
   const banner = details.isLoading || Boolean(info?.banner) || Boolean(saved);
   const related = info?.related ?? [];
+  const scrollY = useRef(new Animated.Value(0)).current;
   const list = platformsFor();
   const consoles = info?.platforms?.length
     ? [...new Set(info.platforms.map((entry) => (entry.id && platformById(list, entry.id)?.name) || entry.name))].sort(
@@ -59,10 +61,45 @@ export function GameSheet({
   ].filter((fact): fact is { label: string; value: string } => Boolean(fact.value));
 
   return (
-    <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: bottomSpace }}>
+    <Animated.ScrollView
+      showsVerticalScrollIndicator={false}
+      contentContainerStyle={{ paddingBottom: bottomSpace }}
+      scrollEventThrottle={16}
+      onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], { useNativeDriver: Platform.OS !== "web" })}
+    >
       {banner ? (
-        <View style={{ height: BANNER_HEIGHT, overflow: "hidden" }}>
-          {bannerImage ? <Image source={{ uri: bannerImage }} resizeMode="cover" style={{ width: "100%", height: "100%" }} /> : null}
+        <View style={{ height: BANNER_HEIGHT }}>
+          {bannerImage ? (
+            <Animated.Image
+              source={{ uri: bannerImage }}
+              resizeMode="cover"
+              style={{
+                position: "absolute",
+                top: 0,
+                left: 0,
+                width: "100%",
+                height: BANNER_HEIGHT,
+                transform: [
+                  {
+                    translateY: scrollY.interpolate({
+                      inputRange: [-BANNER_HEIGHT, 0],
+                      outputRange: [-BANNER_HEIGHT / 2, 0],
+                      extrapolateLeft: "extend",
+                      extrapolateRight: "clamp",
+                    }),
+                  },
+                  {
+                    scale: scrollY.interpolate({
+                      inputRange: [-BANNER_HEIGHT, 0],
+                      outputRange: [2, 1],
+                      extrapolateLeft: "extend",
+                      extrapolateRight: "clamp",
+                    }),
+                  },
+                ],
+              }}
+            />
+          ) : null}
           <BannerDither />
         </View>
       ) : null}
@@ -117,7 +154,7 @@ export function GameSheet({
           </View>
         ) : null}
       </View>
-    </ScrollView>
+    </Animated.ScrollView>
   );
 }
 
