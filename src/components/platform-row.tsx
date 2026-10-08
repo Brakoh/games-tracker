@@ -306,7 +306,7 @@ export function PlatformRow({
             <View accessibilityLabel="Reorder" {...pan.panHandlers} style={{ position: "absolute", zIndex: 3, ...REORDER_HIT }} />
             <ConsoleLogo uri={logo} />
             <Text style={[display(18), { flex: 1 }]}>{name}</Text>
-            <Text style={{ fontFamily: DISPLAY, fontSize: 22, color: RED }}>{count}</Text>
+            <Text style={{ fontFamily: DISPLAY, fontSize: 22, lineHeight: 30, color: RED }}>{count}</Text>
             {favorite ? <FavoriteCorner /> : null}
           </Tap>
         </Animated.View>

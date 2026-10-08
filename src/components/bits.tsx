@@ -98,6 +98,7 @@ export function SkewTag({
           color: active ? "#FFFFFF" : INK,
           fontFamily: DISPLAY,
           fontSize: 13,
+          lineHeight: 18,
           letterSpacing: 0.4,
           textTransform: "uppercase",
         }}
@@ -530,7 +531,7 @@ export function EmptyNote() {
           marginTop: 14,
           fontFamily: DISPLAY,
           fontSize: 28,
-          lineHeight: 32,
+          lineHeight: 38,
           letterSpacing: 0.5,
           textTransform: "uppercase",
           textAlign: "center",
@@ -547,6 +548,7 @@ export function display(size: number): TextStyle {
   return {
     fontFamily: DISPLAY,
     fontSize: size,
+    lineHeight: Math.round(size * 1.35),
     letterSpacing: 0.4,
     textTransform: "uppercase",
     color: INK,

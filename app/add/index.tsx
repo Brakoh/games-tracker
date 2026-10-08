@@ -1,13 +1,15 @@
 import { router, useLocalSearchParams } from "expo-router";
 import { useState } from "react";
 import { ScrollView, Text, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { canAdd, possessionId, titleKey } from "../../src/collection";
-import { ConsoleLogo, SearchField, SearchNotice, display, frame } from "../../src/components/bits";
-import { Phone } from "../../src/components/chrome";
+import { ConsoleLogo, SearchField, SearchNotice, SkewTag, display, frame } from "../../src/components/bits";
+import { Phone, useFramed } from "../../src/components/chrome";
 import { Tap } from "../../src/components/tap";
 import { menuPlatformId, platformById, platformsFor, systemIds } from "../../src/platforms";
 import { useCollection } from "../../src/store";
+import { INK } from "../../src/theme";
 import type { CatalogGame, PlatformDef } from "../../src/types";
 import { useDebouncedSearch } from "../../src/use-debounced-search";
 import { useGameSearch } from "../../src/use-game-search";
@@ -35,11 +37,26 @@ export default function AddScreen() {
   };
   const term = debounced.trim();
   const pending = query.trim() !== term || (search.isFetching && !search.isFetchingNextPage);
-  const title = "Add a game";
+  const insets = useSafeAreaInsets();
+  const framed = useFramed();
 
   return (
-    <Phone title={title} showBack onBack={() => router.back()}>
+    <Phone bare>
+      <View
+        style={{
+          flexDirection: "row",
+          alignItems: "center",
+          paddingHorizontal: 12,
+          paddingTop: framed ? 12 : Math.max(insets.top, 12),
+          paddingBottom: 8,
+          borderBottomWidth: 3,
+          borderBottomColor: INK,
+        }}
+      >
+        <SkewTag label="Back" height={34} onPress={() => router.back()} />
+      </View>
       <ScrollView
+        style={{ flex: 1 }}
         stickyHeaderIndices={[0]}
         showsVerticalScrollIndicator={false}
         showsHorizontalScrollIndicator={false}
@@ -53,7 +70,7 @@ export default function AddScreen() {
           if (contentOffset.y + layoutMeasurement.height >= contentSize.height - NEAR_END) loadMore();
         }}
       >
-        <SearchField value={query} onChange={setQuery} placeholder="Search games" />
+        <SearchField value={query} onChange={setQuery} placeholder="Search games" labeled={false} />
         <View style={{ padding: 12, gap: 10 }}>
           {fixed ? <Text style={display(13)}>{platformById(list, menuPlatformId(fixed))?.name}</Text> : null}
           <SearchNotice pending={pending} term={term} empty={!pending && games.length === 0} />

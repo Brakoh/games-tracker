@@ -1,12 +1,12 @@
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Redirect, router } from "expo-router";
-import { useEffect, useState } from "react";
-import { Platform, Pressable, ScrollView, Text, View } from "react-native";
+import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
+import { Animated, Easing, Platform, Pressable, ScrollView, Text, View } from "react-native";
 
 import { ConsoleLogo, EmptyNote, SkewTag, SquaresTag } from "../src/components/bits";
 import { SettingsMenu } from "./settings";
 import { BottomDither, CaseRow, CaseTile, ConfirmDialog, Phone, SideSheet, StickyAdd, useFramed } from "../src/components/chrome";
-import { Tap } from "../src/components/tap";
+import { PressShade } from "../src/components/tap";
 import { PlatformList, PlatformRow } from "../src/components/platform-row";
 import { sortCopies } from "../src/collection";
 import { brandName, platformById, platformsFor, menuPlatformId, systemIds, shownOrder } from "../src/platforms";
@@ -116,25 +116,19 @@ export default function HomeScreen() {
             const open = () => router.push(`/shelf/${section.id}?from=games`);
             const brand = brandName(section.id);
             return (
-              <View
+              <TablePress
                 key={section.id}
-                style={{
-                  paddingTop: 10,
-                  paddingHorizontal: 10,
-                  borderWidth: 3,
-                  borderColor: INK,
-                  backgroundColor: LINE_PAPER,
-                  ...hardSm,
-                }}
+                label={brand ? `${section.title}, ${brand}` : section.title}
+                onPress={open}
               >
-                <Tap accessibilityLabel={brand ? `${section.title}, ${brand}` : section.title} onPress={open} style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+                <View pointerEvents="none" style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
                   <LogoMark uri={platformById(list, section.id)?.logo} />
                   <View style={{ flex: 1, minWidth: 0 }}>
-                    <Text numberOfLines={1} style={{ fontFamily: DISPLAY, fontSize: 22, lineHeight: 24, letterSpacing: 0.5, textTransform: "uppercase", color: INK }}>{section.title}</Text>
+                    <Text numberOfLines={1} style={{ fontFamily: DISPLAY, fontSize: 22, lineHeight: 30, letterSpacing: 0.5, textTransform: "uppercase", color: INK }}>{section.title}</Text>
                     {brand ? <Text numberOfLines={1} style={{ marginTop: 2, fontFamily: BODY, fontSize: 11, lineHeight: 14, color: INK }}>{brand}</Text> : null}
                   </View>
-                </Tap>
-                <Pressable onPress={open} style={{ marginTop: 10, touchAction: "pan-x" }}>
+                </View>
+                <View style={{ marginTop: 10 }}>
                   <CaseRow bleed={10} padTop={0} padBottom={0}>
                     {section.copies.map((copy) => (
                       <CaseTile
@@ -143,15 +137,14 @@ export default function HomeScreen() {
                         title={titleOf(copy.gameId)}
                         width={104}
                         lines={1}
-                        inert
-                        onOpen={() => {}}
+                        onOpen={() => router.push(`/game/${copy.gameId}/${copy.platformId}?from=home&sheet=games`)}
                       />
                     ))}
+                    <RowRest onPress={open} />
                   </CaseRow>
-                </Pressable>
-                <Tap
-                  accessibilityLabel={`view more, ${section.title}`}
-                  onPress={open}
+                </View>
+                <View
+                  pointerEvents="none"
                   style={{
                     marginHorizontal: -10,
                     marginTop: 8,
@@ -163,14 +156,14 @@ export default function HomeScreen() {
                     alignItems: "center",
                   }}
                 >
-                  <Text style={{ fontFamily: BODY, fontSize: 12, lineHeight: 16, color: INK }}>
-                    <Text style={{ color: RED }}>★ </Text>
-                    {section.copies.length}
-                  </Text>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                    <Text style={{ color: INK, fontSize: 12, lineHeight: 16 }}>★</Text>
+                    <Text style={{ fontFamily: BODY, fontSize: 12, lineHeight: 16, color: INK }}>{tally(section.copies)}</Text>
+                  </View>
                   <View style={{ flex: 1 }} />
-                  <Text style={{ fontFamily: BODY, fontSize: 12, lineHeight: 16, color: INK }}>view more &gt;</Text>
-                </Tap>
-              </View>
+                  <Text style={{ fontFamily: BODY, fontSize: 12, lineHeight: 16, color: INK }}>view collection &gt;</Text>
+                </View>
+              </TablePress>
             );
           })}
         </ScrollView>
@@ -181,7 +174,7 @@ export default function HomeScreen() {
         onPress={() => router.push(sheet === "games" ? "/add" : "/platforms")}
       />
       <SideSheet visible={settingsOpen} onClose={() => setSettingsOpen(false)}>
-        <Text style={{ paddingHorizontal: 12, fontFamily: DISPLAY, fontSize: 28, lineHeight: 30, letterSpacing: 0.5, color: RED, textTransform: "uppercase" }}>Settings</Text>
+        <Text style={{ paddingHorizontal: 12, fontFamily: DISPLAY, fontSize: 28, lineHeight: 38, letterSpacing: 0.5, color: RED, textTransform: "uppercase" }}>Settings</Text>
         <SettingsMenu onNavigate={() => setSettingsOpen(false)} />
       </SideSheet>
       <ConfirmDialog
@@ -196,6 +189,68 @@ export default function HomeScreen() {
       />
     </Phone>
   );
+}
+
+const TablePressControls = createContext<{ arm: () => void; release: () => void } | null>(null);
+
+function RowRest({ onPress }: { onPress: () => void }) {
+  const table = useContext(TablePressControls);
+  return (
+    <Pressable
+      accessibilityRole="button"
+      onPress={onPress}
+      onPressIn={() => table?.arm()}
+      onPressOut={() => table?.release()}
+      style={{ flexGrow: 1, alignSelf: "stretch" }}
+    />
+  );
+}
+
+function TablePress({ label, onPress, children }: { label: string; onPress: () => void; children: ReactNode }) {
+  const pressed = useRef(new Animated.Value(0)).current;
+  const shade = pressed.interpolate({ inputRange: [0, 1], outputRange: [0, 0.12] });
+  const scale = pressed.interpolate({ inputRange: [0, 1], outputRange: [1, 0.97] });
+  const sink = (to: number) => {
+    Animated.timing(pressed, {
+      toValue: to,
+      duration: to === 1 ? 90 : 150,
+      easing: Easing.out(Easing.quad),
+      useNativeDriver: true,
+    }).start();
+  };
+  const controls = useRef({ arm: () => sink(1), release: () => sink(0) }).current;
+  return (
+    <TablePressControls.Provider value={controls}>
+      <Animated.View
+        style={{
+          transform: [{ scale }],
+          paddingTop: 10,
+          paddingHorizontal: 10,
+          borderWidth: 3,
+          borderColor: INK,
+          backgroundColor: LINE_PAPER,
+          ...hardSm,
+        }}
+      >
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={label}
+          onPress={onPress}
+          onPressIn={() => sink(1)}
+          onPressOut={() => sink(0)}
+          style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0 }}
+        />
+        {children}
+        <PressShade opacity={shade} />
+      </Animated.View>
+    </TablePressControls.Provider>
+  );
+}
+
+function tally(copies: { finished: boolean }[]) {
+  const pad = (value: number) => String(value).padStart(3, "0");
+  const finished = copies.filter((copy) => copy.finished).length;
+  return `${pad(finished)}/${pad(copies.length)}`;
 }
 
 function LogoMark({ uri }: { uri?: string }) {

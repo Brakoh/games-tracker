@@ -10,11 +10,11 @@ import { bannerKey, useCaseCover } from "../../src/case-cover";
 import { forgetCover } from "../../src/cover-cache";
 import { COMPLETED_XML, NON_COMPLETED_XML } from "../../src/finished-badge";
 import { EmptyNote, FinishedRosette, MissingCover, SkewTag, TrashIcon, ViewToggle } from "../../src/components/bits";
-import { BottomDither, CaseTile, ConfirmDialog, Phone, StickyAdd, useFramed } from "../../src/components/chrome";
+import { BottomDither, CaseFace, CaseTile, ConfirmDialog, Phone, StickyAdd, useFramed } from "../../src/components/chrome";
 import { PressShade, Tap } from "../../src/components/tap";
 import { menuPlatformId, platformById, platformsFor, shownOrder, systemIds } from "../../src/platforms";
 import { useCollection } from "../../src/store";
-import { CARD, DISPLAY, hard, hardSm, INK, PAPER, RED } from "../../src/theme";
+import { CARD, DISPLAY, hard, hardSm, INK, RED } from "../../src/theme";
 import type { Copy } from "../../src/types";
 
 function DownTriangle() {
@@ -81,7 +81,7 @@ function ConsoleButton({ label, onPress }: { label: string; onPress: () => void 
     >
       <View style={{ transform: [{ skewX: "12deg" }], flexDirection: "row", alignItems: "center", gap: 8 }}>
         <DownTriangle />
-        <Text numberOfLines={1} style={{ flexShrink: 1, color: "#FFFFFF", fontFamily: DISPLAY, fontSize: 13, letterSpacing: 0.4, textTransform: "uppercase" }}>
+        <Text numberOfLines={1} style={{ flexShrink: 1, color: "#FFFFFF", fontFamily: DISPLAY, fontSize: 13, lineHeight: 18, letterSpacing: 0.4, textTransform: "uppercase" }}>
           {label}
         </Text>
       </View>
@@ -164,7 +164,7 @@ function ShelfLine({
               {copy.finished ? <FinishedRosette size={18} inset={-6} /> : null}
             </View>
             <View style={{ flex: 1, minWidth: 0 }}>
-              <Text style={{ fontFamily: DISPLAY, fontSize: 16, letterSpacing: 0.4, textTransform: "uppercase", color: INK }} numberOfLines={1}>
+              <Text style={{ fontFamily: DISPLAY, fontSize: 16, lineHeight: 22, letterSpacing: 0.4, textTransform: "uppercase", color: INK }} numberOfLines={1}>
                 {title}
               </Text>
             </View>
@@ -241,8 +241,6 @@ function IconTag({
   );
 }
 
-const GENTLE = Easing.bezier(0.47, 0, 0.23, 1.38);
-const GENTLE_BACK = Easing.bezier(0.77, -0.38, 0.53, 1);
 const BAND = "#E3DCC8";
 const BAND_FADE = [40, 120];
 
@@ -265,6 +263,12 @@ function HoldButton({ label, onPress, red, children }: { label: string; onPress:
       {children}
     </Tap>
   );
+}
+
+function HeldCover({ copy, title }: { copy: Copy; title: string }) {
+  const stored = useCollection((state) => state.catalog[copy.gameId]?.cover);
+  const front = useCaseCover(copy.gameId, copy.platformId, title) || (stored?.startsWith("https://images.igdb.com/") ? stored : undefined);
+  return <CaseFace platformId={copy.platformId} cover={front} finished={copy.finished} />;
 }
 
 function HoldMenu({
@@ -294,13 +298,15 @@ function HoldMenu({
     <Modal visible transparent animationType="fade" onRequestClose={onClose}>
       <View style={{ flex: 1 }}>
         <Pressable accessibilityLabel="Close" onPress={onClose} style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0, backgroundColor: "rgba(12,11,8,0.5)" }} />
-        <View pointerEvents="none" style={{ position: "absolute", left: frame.x, top: frame.y, width: frame.width, backgroundColor: PAPER, transform: [{ scale: 1.03 }] }}>
-          {cover ? (
-            <CaseTile inert copy={copy} title={title} onOpen={() => {}} />
-          ) : (
+        {cover ? (
+          <View pointerEvents="none" style={{ position: "absolute", left: frame.x, top: frame.y, width: frame.width, transform: [{ scale: 1.03 }] }}>
+            <HeldCover copy={copy} title={title} />
+          </View>
+        ) : (
+          <View pointerEvents="none" style={{ position: "absolute", left: frame.x, top: frame.y, width: frame.width, transform: [{ scale: 1.03 }] }}>
             <ShelfLine copy={copy} title={title} onOpen={() => {}} />
-          )}
-        </View>
+          </View>
+        )}
         <View style={{ position: "absolute", left, top, gap: 6 }}>
           <HoldButton label="Remove from library" red onPress={onTrash}>
             <TrashIcon />
@@ -315,89 +321,14 @@ function HoldMenu({
 }
 
 function SelectSwitch({ on, onPress }: { on: boolean; onPress: () => void }) {
-  const progress = useRef(new Animated.Value(0)).current;
-  const seen = useRef(false);
-  const [wordW, setWordW] = useState(0);
-  const [crossW, setCrossW] = useState(0);
-  const [wordH, setWordH] = useState(0);
-  const [crossH, setCrossH] = useState(0);
-
-  useEffect(() => {
-    if (!seen.current) {
-      seen.current = true;
-      progress.setValue(on ? 1 : 0);
-      return;
-    }
-    progress.stopAnimation();
-    Animated.timing(progress, {
-      toValue: on ? 1 : 0,
-      duration: 200,
-      easing: on ? GENTLE_BACK : GENTLE,
-      useNativeDriver: false,
-    }).start();
-  }, [on, progress]);
-
-  const ready = wordW > 0 && crossW > 0 && wordH > 0 && crossH > 0;
-  const width = progress.interpolate({ inputRange: [0, 1], outputRange: [wordW || 1, crossW || 1], extrapolate: "extend" });
-  const height = progress.interpolate({ inputRange: [0, 1], outputRange: [wordH || 1, crossH || 1], extrapolate: "extend" });
-  const wordOpacity = progress.interpolate({ inputRange: [0, 0.35, 0.8, 1], outputRange: [1, 1, 0, 0], extrapolate: "clamp" });
-  const crossOpacity = progress.interpolate({ inputRange: [0, 0.2, 0.65, 1], outputRange: [0, 0, 1, 1], extrapolate: "clamp" });
-  const shell = {
-    borderWidth: 3,
-    borderColor: INK,
-    ...hardSm,
-    alignItems: "center" as const,
-    justifyContent: "center" as const,
-    transform: [{ skewX: "-12deg" as const }],
-  };
-
-  return (
-    <View>
-      <View pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{ position: "absolute", opacity: 0 }}>
-        <View
-          style={{ alignSelf: "flex-start" }}
-          onLayout={(event) => {
-            setWordW(Math.ceil(event.nativeEvent.layout.width));
-            setWordH(Math.ceil(event.nativeEvent.layout.height));
-          }}
-        >
-          <SkewTag label="select" onPress={() => {}} />
-        </View>
-        <View
-          style={{ alignSelf: "flex-start" }}
-          onLayout={(event) => {
-            setCrossW(Math.ceil(event.nativeEvent.layout.width));
-            setCrossH(Math.ceil(event.nativeEvent.layout.height));
-          }}
-        >
-          <IconTag label="Close" red onPress={() => {}}>
-            <CrossMark />
-          </IconTag>
-        </View>
-      </View>
-      {ready ? (
-        <Pressable accessibilityRole="button" accessibilityLabel={on ? "Close" : "select"} onPress={onPress}>
-          <Animated.View style={{ width, height }}>
-            <Animated.View style={[shell, { flex: 1, backgroundColor: CARD, opacity: wordOpacity, paddingHorizontal: 12 }]}>
-              <Text style={{ transform: [{ skewX: "12deg" }], color: INK, fontFamily: DISPLAY, fontSize: 13, letterSpacing: 0.4, textTransform: "uppercase" }}>
-                select
-              </Text>
-            </Animated.View>
-            <Animated.View
-              pointerEvents="none"
-              style={[shell, { position: "absolute", top: 0, right: 0, bottom: 0, left: 0, backgroundColor: RED, opacity: crossOpacity }]}
-            >
-              <View style={{ transform: [{ skewX: "12deg" }] }}>
-                <CrossMark />
-              </View>
-            </Animated.View>
-          </Animated.View>
-        </Pressable>
-      ) : (
-        <SkewTag label="select" onPress={onPress} />
-      )}
-    </View>
-  );
+  if (on) {
+    return (
+      <IconTag label="Close" red onPress={onPress}>
+        <CrossMark />
+      </IconTag>
+    );
+  }
+  return <SkewTag label="select" onPress={onPress} />;
 }
 
 function SelectTools({
@@ -499,13 +430,12 @@ export default function ShelfScreen() {
   const [pendingRemove, setPendingRemove] = useState<Copy | null>(null);
   const tileNodes = useRef(new Map<string, View>());
   const skipOpen = useRef(false);
-  const [barTop, setBarTop] = useState(0);
-  const [toolsBlock, setToolsBlock] = useState(0);
+  const [toolsBlock, setToolsBlock] = useState(63);
   const scrollY = useRef(new Animated.Value(0)).current;
   const bandOpacity = scrollY.interpolate({ inputRange: BAND_FADE, outputRange: [0, 1], extrapolate: "clamp" });
   const [picked, setPicked] = useState<string[]>([]);
   const [confirming, setConfirming] = useState(false);
-  const [menuAtEnd, setMenuAtEnd] = useState(false);
+  const menuFadeOpacity = useRef(new Animated.Value(1)).current;
   const [menuMounted, setMenuMounted] = useState(false);
   const [anchor, setAnchor] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
   const buttonRef = useRef<View>(null);
@@ -528,6 +458,7 @@ export default function ShelfScreen() {
       menuLive.current = true;
       menuProgress.stopAnimation();
       menuProgress.setValue(0);
+      menuFadeOpacity.setValue(1);
       setMenuMounted(true);
       const frame = requestAnimationFrame(() => {
         Animated.timing(menuProgress, { toValue: 1, duration: 220, easing: Easing.out(Easing.cubic), useNativeDriver: false }).start();
@@ -606,11 +537,11 @@ export default function ShelfScreen() {
       footer={
         <>
           <BottomDither />
-          <StickyAdd onPress={() => router.push(`/add?platformId=${menuId}`)} />
+          {selecting ? null : <StickyAdd onPress={() => router.push(`/add?platformId=${menuId}`)} />}
         </>
       }
     >
-      <View onLayout={(event) => setBarTop(event.nativeEvent.layout.height)} style={{ zIndex: 5 }}>
+      <View style={{ zIndex: 5 }}>
         <View
           style={{
             flexDirection: "row",
@@ -659,8 +590,8 @@ export default function ShelfScreen() {
                       scrollEventThrottle={16}
                       onScroll={(event) => {
                         const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
-                        const end = contentOffset.y + layoutMeasurement.height >= contentSize.height - 2;
-                        setMenuAtEnd((current) => (current === end ? current : end));
+                        const distance = contentSize.height - layoutMeasurement.height - contentOffset.y;
+                        menuFadeOpacity.setValue(Math.min(1, Math.max(0, distance / 12)));
                       }}
                     >
                       {consoles.map((consoleId, index) => (
@@ -674,14 +605,14 @@ export default function ShelfScreen() {
                             }}
                             style={{ height: MENU_ROW, justifyContent: "center", paddingHorizontal: 10 }}
                           >
-                            <Text numberOfLines={1} style={{ fontFamily: DISPLAY, fontSize: 13, letterSpacing: 0.4, textTransform: "uppercase", color: INK }}>
+                            <Text numberOfLines={1} style={{ fontFamily: DISPLAY, fontSize: 13, lineHeight: 18, letterSpacing: 0.4, textTransform: "uppercase", color: INK }}>
                               {nameOf(consoleId)}
                             </Text>
                           </Tap>
                         </View>
                       ))}
                     </ScrollView>
-                    {consoles.length > MENU_VISIBLE && !menuAtEnd ? <BottomDither height={menuFade} /> : null}
+                    {consoles.length > MENU_VISIBLE ? <BottomDither height={menuFade} opacity={menuFadeOpacity} /> : null}
                   </View>
                 </Animated.View>
               </View>
@@ -694,7 +625,7 @@ export default function ShelfScreen() {
           <EmptyNote />
         </View>
       ) : (
-        <>
+        <View style={{ flex: 1 }}>
         <Animated.ScrollView
           style={{ flex: 1 }}
           showsVerticalScrollIndicator={false}
@@ -758,7 +689,7 @@ export default function ShelfScreen() {
           pointerEvents="none"
           style={{
             position: "absolute",
-            top: barTop,
+            top: 0,
             left: 0,
             right: 0,
             height: toolsBlock,
@@ -773,7 +704,7 @@ export default function ShelfScreen() {
           onLayout={(event) => setToolsBlock(Math.ceil(event.nativeEvent.layout.height))}
           style={{
             position: "absolute",
-            top: barTop,
+            top: 0,
             left: 0,
             right: 0,
             zIndex: 4,
@@ -796,7 +727,7 @@ export default function ShelfScreen() {
           />
           <SelectSwitch on={selecting} onPress={toggleSelecting} />
         </View>
-      </>
+        </View>
       )}
       {held ? (
         <HoldMenu

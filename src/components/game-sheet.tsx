@@ -131,6 +131,7 @@ export function GameSheet({
               style={{
                 fontFamily: DISPLAY,
                 fontSize: 22,
+                lineHeight: 30,
                 letterSpacing: 0.5,
                 textTransform: "uppercase",
                 color: INK,

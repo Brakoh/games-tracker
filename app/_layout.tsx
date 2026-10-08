@@ -1,4 +1,4 @@
-import { Stack } from "expo-router";
+import { Stack } from "expo-router/js-stack";
 import { Anton_400Regular, useFonts } from "@expo-google-fonts/anton";
 import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
@@ -70,7 +70,16 @@ export default function RootLayout() {
       <SafeAreaProvider>
         <QueryClientProvider client={queryClient}>
           <CoverJanitor />
-          <Stack screenOptions={{ headerShown: false }} />
+          <Stack
+            screenOptions={{
+              headerShown: false,
+              animation: "none",
+              gestureEnabled: false,
+              cardShadowEnabled: false,
+              cardOverlayEnabled: false,
+              cardStyle: { backgroundColor: PAPER },
+            }}
+          />
         </QueryClientProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>

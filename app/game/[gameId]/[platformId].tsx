@@ -47,8 +47,9 @@ export default function GameScreen() {
   const back = () => {
     const home = params.sheet === "games" ? "/?sheet=games" : "/";
     if (added) router.replace(home);
-    else if (params.from === "featured" && router.canGoBack()) router.back();
-    else router.replace(params.from === "home" ? home : params.sheet === "games" ? `/shelf/${platformId}?from=games` : `/shelf/${platformId}`);
+    else if ((params.from === "featured" || params.from === "home") && router.canGoBack()) router.back();
+    else if (params.from === "home") router.replace(home);
+    else router.replace(params.sheet === "games" ? `/shelf/${platformId}?from=games` : `/shelf/${platformId}`);
   };
   const openFeatured = (featured: FeaturedGame) => {
     const owned = findCopy(copies, featured.id, platformId) ?? copyByTitle(copies, catalog, featured.title, platformId);

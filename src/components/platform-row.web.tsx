@@ -474,7 +474,7 @@ export function PlatformRow({
           }),
           createElement(ConsoleLogo, { uri: logo }),
           createElement(Text, { style: [display(18), { flex: 1 }] }, name),
-          createElement(Text, { style: { fontFamily: DISPLAY, fontSize: 22, color: RED } }, String(count)),
+          createElement(Text, { style: { fontFamily: DISPLAY, fontSize: 22, lineHeight: 30, color: RED } }, String(count)),
           favorite ? createElement(FavoriteCorner) : null,
         ),
       ),

@@ -1,6 +1,6 @@
 import { router, useLocalSearchParams } from "expo-router";
-import { useState } from "react";
-import { Platform, ScrollView, Text, View } from "react-native";
+import { useRef, useState } from "react";
+import { Animated, Platform, Text, View } from "react-native";
 
 import { ConsoleLogo, SearchField, display } from "../src/components/bits";
 import { Tap } from "../src/components/tap";
@@ -17,7 +17,8 @@ export default function PlatformsScreen() {
   const commitPlatforms = useCollection((state) => state.commitPlatforms);
   const [draft, setDraft] = useState(active);
   const [query, setQuery] = useState("");
-  const [scrolled, setScrolled] = useState(false);
+  const scrollY = useRef(new Animated.Value(0)).current;
+  const topFade = scrollY.interpolate({ inputRange: [0, 12], outputRange: [0, 0.72], extrapolate: "clamp" });
   const list = platformsFor(switch2RawgId);
   const matches = (name: string) => nameMatches(name, query);
   const nextGen = nextGenPlatforms(list).filter((platform) => matches(platform.name));
@@ -51,17 +52,14 @@ export default function PlatformsScreen() {
       </Text>
       <View style={{ zIndex: 2 }}>
         <SearchField value={query} onChange={setQuery} placeholder="Search systems" labeled={false} divider="above" />
-        {scrolled ? <TopDither /> : null}
+        <TopDither opacity={topFade} />
       </View>
-      <ScrollView
+      <Animated.ScrollView
         style={{ flex: 1 }}
         showsVerticalScrollIndicator={false}
         showsHorizontalScrollIndicator={false}
         scrollEventThrottle={16}
-        onScroll={(event) => {
-          const next = event.nativeEvent.contentOffset.y > 4;
-          if (next !== scrolled) setScrolled(next);
-        }}
+        onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], { useNativeDriver: Platform.OS !== "web" })}
         contentContainerStyle={{ paddingBottom: 140 }}
       >
         <View style={{ padding: 12, gap: 18 }}>
@@ -93,7 +91,7 @@ export default function PlatformsScreen() {
             </View>
           ))}
         </View>
-      </ScrollView>
+      </Animated.ScrollView>
     </Phone>
   );
 }

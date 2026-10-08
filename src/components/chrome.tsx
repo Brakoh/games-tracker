@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Animated, Easing, Image, Modal, Platform, Pressable, ScrollView, Text, useWindowDimensions, View, type ViewStyle } from "react-native";
+import { Animated, Easing, Image, Modal, Platform, Pressable, Text, useWindowDimensions, View, type ViewStyle } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useCaseCover } from "../case-cover";
@@ -65,7 +65,7 @@ export function Phone({
             }}
           >
             <View className="min-w-0 flex-1">
-              <Text style={{ fontFamily: DISPLAY, fontSize: 28, lineHeight: 30, letterSpacing: 0.5, color: RED, textTransform: "uppercase" }} numberOfLines={1}>
+              <Text style={{ fontFamily: DISPLAY, fontSize: 28, lineHeight: 38, letterSpacing: 0.5, color: RED, textTransform: "uppercase" }} numberOfLines={1}>
                 {title}
               </Text>
               <Text style={{ marginTop: 2, fontFamily: BODY, fontSize: 10, letterSpacing: 1.4, textTransform: "uppercase", color: INK }}>{kicker}</Text>
@@ -360,9 +360,43 @@ const DITHER_BANNER_HEIGHT = 56;
 const DITHER_WIDTH = 28;
 const DITHER_BOTTOM_HEIGHT = 140;
 
-export function DitherEdge({ side }: { side: "left" | "right" }) {
+function DitherFill({ uri, tileWidth, tileHeight, columns, rows }: { uri: string; tileWidth: number; tileHeight: number; columns: number; rows: number }) {
+  if (Platform.OS === "web") {
+    return (
+      <View
+        style={
+          {
+            width: "100%",
+            height: "100%",
+            backgroundImage: `url("${uri}")`,
+            backgroundRepeat: "repeat",
+            backgroundSize: `${tileWidth}px ${tileHeight}px`,
+          } as ViewStyle
+        }
+      />
+    );
+  }
   return (
-    <View
+    <View pointerEvents="none" style={{ width: "100%", height: "100%", overflow: "hidden" }}>
+      {Array.from({ length: rows }, (_, row) => (
+        <View key={row} style={{ flexDirection: "row", height: tileHeight }}>
+          {Array.from({ length: columns }, (_, column) => (
+            <Image key={column} pointerEvents="none" source={{ uri }} resizeMode="stretch" style={{ width: tileWidth, height: tileHeight }} />
+          ))}
+        </View>
+      ))}
+    </View>
+  );
+}
+
+const DITHER_SCROLL = 12;
+const DITHER_EDGE = 0.72;
+
+type DitherOpacity = number | Animated.Value | Animated.AnimatedInterpolation<number>;
+
+export function DitherEdge({ side, opacity = DITHER_EDGE }: { side: "left" | "right"; opacity?: DitherOpacity }) {
+  return (
+    <Animated.View
       pointerEvents="none"
       style={{
         position: "absolute",
@@ -371,63 +405,28 @@ export function DitherEdge({ side }: { side: "left" | "right" }) {
         width: DITHER_WIDTH,
         ...(side === "right" ? { right: 0 } : { left: 0 }),
         transform: side === "left" ? [{ scaleX: -1 }] : undefined,
-        opacity: 0.72,
+        opacity,
         zIndex: 2,
+        overflow: "hidden",
       }}
     >
-      {Platform.OS === "web" ? (
-        <View
-          style={{
-            width: "100%",
-            height: "100%",
-            backgroundImage: `url("${DITHER_FADE}")`,
-            backgroundRepeat: "repeat",
-            backgroundSize: `${DITHER_WIDTH}px 8px`,
-          } as ViewStyle}
-        />
-      ) : (
-        <Image pointerEvents="none" source={{ uri: DITHER_FADE }} resizeMode="repeat" style={{ width: "100%", height: "100%" }} />
-      )}
-    </View>
+      <DitherFill uri={DITHER_FADE} tileWidth={DITHER_WIDTH} tileHeight={8} columns={1} rows={120} />
+    </Animated.View>
   );
 }
 
-export function TopDither() {
+export function TopDither({ opacity = DITHER_EDGE }: { opacity?: DitherOpacity }) {
   return (
-    <View pointerEvents="none" style={{ position: "absolute", left: 0, right: 0, top: "100%", height: DITHER_WIDTH, opacity: 0.72 }}>
-      {Platform.OS === "web" ? (
-        <View
-          style={{
-            width: "100%",
-            height: "100%",
-            backgroundImage: `url("${DITHER_FADE_DOWN}")`,
-            backgroundRepeat: "repeat",
-            backgroundSize: `8px ${DITHER_WIDTH}px`,
-          } as ViewStyle}
-        />
-      ) : (
-        <Image source={{ uri: DITHER_FADE_DOWN }} resizeMode="repeat" style={{ width: "100%", height: "100%" }} />
-      )}
-    </View>
+    <Animated.View pointerEvents="none" style={{ position: "absolute", left: 0, right: 0, top: "100%", height: DITHER_WIDTH, opacity, overflow: "hidden" }}>
+      <DitherFill uri={DITHER_FADE_DOWN} tileWidth={8} tileHeight={DITHER_WIDTH} columns={80} rows={1} />
+    </Animated.View>
   );
 }
 
 export function BannerDither() {
   return (
-    <View pointerEvents="none" style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: DITHER_BANNER_HEIGHT }}>
-      {Platform.OS === "web" ? (
-        <View
-          style={{
-            width: "100%",
-            height: "100%",
-            backgroundImage: `url("${DITHER_BANNER}")`,
-            backgroundRepeat: "repeat-x",
-            backgroundSize: `8px ${DITHER_BANNER_HEIGHT}px`,
-          } as ViewStyle}
-        />
-      ) : (
-        <Image source={{ uri: DITHER_BANNER }} resizeMode="repeat" style={{ width: "100%", height: "100%" }} />
-      )}
+    <View pointerEvents="none" style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: DITHER_BANNER_HEIGHT, overflow: "hidden" }}>
+      <DitherFill uri={DITHER_BANNER} tileWidth={8} tileHeight={DITHER_BANNER_HEIGHT} columns={80} rows={1} />
     </View>
   );
 }
@@ -443,32 +442,39 @@ export function CaseRow({
   padTop?: number;
   padBottom?: number;
 }) {
-  const frame = useRef({ x: 0, content: 0, layout: 0 });
-  const [edges, setEdges] = useState({ left: false, right: false });
-  const sync = (next: Partial<{ x: number; content: number; layout: number }>) => {
-    frame.current = { ...frame.current, ...next };
-    const { x, content, layout } = frame.current;
-    const max = content - layout;
-    const left = x > 8;
-    const right = max > 8 && x < max - 8;
-    setEdges((current) => (current.left === left && current.right === right ? current : { left, right }));
+  const scrollX = useRef(new Animated.Value(0)).current;
+  const [span, setSpan] = useState({ content: 0, layout: 0 });
+  const remember = (next: Partial<{ content: number; layout: number }>) => {
+    setSpan((current) => {
+      const updated = { ...current, ...next };
+      return updated.content === current.content && updated.layout === current.layout ? current : updated;
+    });
   };
+  const max = Math.max(0, span.content - span.layout);
+  const leftOpacity = scrollX.interpolate({ inputRange: [0, DITHER_SCROLL], outputRange: [0, DITHER_EDGE], extrapolate: "clamp" });
+  const fadeEnd = Math.max(max, DITHER_SCROLL);
+  const fadeStart = Math.max(0, fadeEnd - DITHER_SCROLL);
+  const rightOpacity = scrollX.interpolate({
+    inputRange: fadeStart === 0 ? [0, fadeEnd] : [0, fadeStart, fadeEnd],
+    outputRange: fadeStart === 0 ? [0, 0] : [DITHER_EDGE, DITHER_EDGE, 0],
+    extrapolate: "clamp",
+  });
   return (
     <View style={{ marginHorizontal: -bleed }}>
-      <ScrollView
+      <Animated.ScrollView
         horizontal
         showsVerticalScrollIndicator={false}
         showsHorizontalScrollIndicator={false}
         scrollEventThrottle={16}
-        onScroll={(event) => sync({ x: event.nativeEvent.contentOffset.x })}
-        onLayout={(event) => sync({ layout: event.nativeEvent.layout.width })}
-        onContentSizeChange={(width) => sync({ content: width })}
-        contentContainerStyle={{ gap: 12, paddingBottom: padBottom, paddingLeft: bleed, paddingRight: bleed, paddingTop: padTop }}
+        onScroll={Animated.event([{ nativeEvent: { contentOffset: { x: scrollX } } }], { useNativeDriver: Platform.OS !== "web" })}
+        onLayout={(event) => remember({ layout: event.nativeEvent.layout.width })}
+        onContentSizeChange={(width) => remember({ content: width })}
+        contentContainerStyle={{ flexGrow: 1, gap: 12, paddingBottom: padBottom, paddingLeft: bleed, paddingRight: bleed, paddingTop: padTop }}
       >
         {children}
-      </ScrollView>
-      {edges.left ? <DitherEdge side="left" /> : null}
-      {edges.right ? <DitherEdge side="right" /> : null}
+      </Animated.ScrollView>
+      <DitherEdge side="left" opacity={leftOpacity} />
+      <DitherEdge side="right" opacity={rightOpacity} />
     </View>
   );
 }
@@ -499,29 +505,11 @@ export function StickyAdd({ label = "Add a game", onPress }: { label?: string; o
   );
 }
 
-export function BottomDither({ height = DITHER_BOTTOM_HEIGHT }: { height?: number }) {
+export function BottomDither({ height = DITHER_BOTTOM_HEIGHT, opacity = 1 }: { height?: number; opacity?: DitherOpacity }) {
   return (
-    <View
-      pointerEvents="none"
-      style={
-        {
-          position: "absolute",
-          left: 0,
-          right: 0,
-          bottom: 0,
-          height,
-          zIndex: 2,
-          opacity: 1,
-          backgroundImage: `url("${DITHER_BOTTOM}")`,
-          backgroundRepeat: "repeat",
-          backgroundSize: `8px ${height}px`,
-        } as ViewStyle
-      }
-    >
-      {Platform.OS === "web" ? null : (
-        <Image pointerEvents="none" source={{ uri: DITHER_BOTTOM }} resizeMode="repeat" style={{ width: "100%", height: "100%" }} />
-      )}
-    </View>
+    <Animated.View pointerEvents="none" style={{ position: "absolute", left: 0, right: 0, bottom: 0, height, zIndex: 2, overflow: "hidden", opacity }}>
+      <DitherFill uri={DITHER_BOTTOM} tileWidth={8} tileHeight={height} columns={80} rows={1} />
+    </Animated.View>
   );
 }
 
