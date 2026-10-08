@@ -25,10 +25,12 @@ export function Phone({
   onSettings,
   footer,
   bare,
+  headerRule = true,
   children,
 }: {
   title?: string;
   bare?: boolean;
+  headerRule?: boolean;
   kicker?: string;
   showBack?: boolean;
   onBack?: () => void;
@@ -57,7 +59,7 @@ export function Phone({
           <View
             className="flex-row items-center gap-2 bg-paper px-3 pb-2"
             style={{
-              borderBottomWidth: 3,
+              borderBottomWidth: headerRule ? 3 : 0,
               borderBottomColor: INK,
               paddingTop: framed ? 12 : Math.max(insets.top, 12),
             }}
@@ -184,6 +186,59 @@ export function BottomSheet({ visible, onClose, children }: { visible: boolean; 
   );
 }
 
+export function SideSheet({ visible, onClose, children }: { visible: boolean; onClose: () => void; children: React.ReactNode }) {
+  const insets = useSafeAreaInsets();
+  const framed = useFramed();
+  const [mounted, setMounted] = useState(visible);
+  const [width, setWidth] = useState(360);
+  const progress = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (visible) {
+      setMounted(true);
+      Animated.timing(progress, { toValue: 1, duration: 240, easing: Easing.out(Easing.cubic), useNativeDriver: Platform.OS !== "web" }).start();
+      return;
+    }
+    Animated.timing(progress, { toValue: 0, duration: 180, easing: Easing.in(Easing.cubic), useNativeDriver: Platform.OS !== "web" }).start(({ finished }) => {
+      if (finished) setMounted(false);
+    });
+  }, [visible, progress]);
+
+  return (
+    <Modal visible={mounted} transparent animationType="none" onRequestClose={onClose}>
+      <View style={{ flex: 1, alignItems: "center" }}>
+        <Animated.View style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0, backgroundColor: "rgba(12,11,8,0.5)", opacity: progress }}>
+          <Pressable accessibilityLabel="Close" onPress={onClose} style={{ flex: 1 }} />
+        </Animated.View>
+        <View pointerEvents="box-none" style={{ flex: 1, width: "100%", maxWidth: framed ? 420 : undefined }}>
+          <Animated.View
+            onLayout={({ nativeEvent }) => setWidth(nativeEvent.layout.width)}
+            style={{
+              position: "absolute",
+              top: 0,
+              right: 0,
+              bottom: 0,
+              width: "75%",
+              backgroundColor: PAPER,
+              borderLeftWidth: 3,
+              borderColor: INK,
+              paddingTop: framed ? 16 : Math.max(insets.top, 16),
+              transform: [{ translateX: progress.interpolate({ inputRange: [0, 1], outputRange: [width, 0] }) }],
+            }}
+          >
+            <View pointerEvents="none" style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0 }}>
+              {Array.from({ length: 48 }, (_, index) => (
+                <View key={index} style={{ position: "absolute", left: 0, right: 0, top: 28 * (index + 1), height: 1, backgroundColor: "rgba(12,11,8,0.08)" }} />
+              ))}
+            </View>
+            {children}
+          </Animated.View>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
 export function SortBar({ sort, onSort, nowrap }: { sort: SortMode; onSort: (sort: SortMode) => void; nowrap?: boolean }) {
   return (
     <View className="flex-row gap-2" style={{ flexWrap: nowrap ? "nowrap" : "wrap", justifyContent: nowrap ? "flex-end" : "flex-start" }}>
@@ -243,16 +298,36 @@ export function CaseTile({
   title,
   subtitle,
   width,
+  lines = 2,
+  inert = false,
   onOpen,
 }: {
   copy: Copy;
   title: string;
   subtitle?: string;
   width?: number;
+  lines?: number;
+  inert?: boolean;
   onOpen: () => void;
 }) {
   const stored = useCollection((state) => state.catalog[copy.gameId]?.cover);
   const front = useCaseCover(copy.gameId, copy.platformId, title) || igdbCover(stored);
+  const face = (
+    <>
+      <View>
+        <CaseFace platformId={copy.platformId} cover={front} finished={copy.finished} />
+      </View>
+      <Text style={{ fontFamily: DISPLAY, fontSize: 12, lineHeight: 18, letterSpacing: 0.3, textTransform: "uppercase", color: INK }} numberOfLines={lines} ellipsizeMode="tail">
+        {title}
+      </Text>
+      {subtitle ? (
+        <Text style={{ fontFamily: BODY, fontSize: 10, color: INK }} numberOfLines={1}>
+          {subtitle}
+        </Text>
+      ) : null}
+    </>
+  );
+  if (inert) return <View style={{ width: width ?? "100%", gap: 6 }}>{face}</View>;
   return (
     <Tap shade={false} onPress={onOpen} accessibilityLabel={title} style={{ width: width ?? "100%", gap: 6 }}>
       {(dim) => (
@@ -261,7 +336,7 @@ export function CaseTile({
             <CaseFace platformId={copy.platformId} cover={front} finished={copy.finished} />
             <PressShade opacity={dim} />
           </View>
-          <Text style={{ fontFamily: DISPLAY, fontSize: 12, letterSpacing: 0.3, textTransform: "uppercase", color: INK }} numberOfLines={2}>
+          <Text style={{ fontFamily: DISPLAY, fontSize: 12, lineHeight: 18, letterSpacing: 0.3, textTransform: "uppercase", color: INK }} numberOfLines={lines} ellipsizeMode="tail">
             {title}
           </Text>
           {subtitle ? (
@@ -355,7 +430,17 @@ export function BannerDither() {
   );
 }
 
-export function CaseRow({ children }: { children: React.ReactNode }) {
+export function CaseRow({
+  children,
+  bleed = 12,
+  padTop = 2,
+  padBottom = 10,
+}: {
+  children: React.ReactNode;
+  bleed?: number;
+  padTop?: number;
+  padBottom?: number;
+}) {
   const frame = useRef({ x: 0, content: 0, layout: 0 });
   const [edges, setEdges] = useState({ left: false, right: false });
   const sync = (next: Partial<{ x: number; content: number; layout: number }>) => {
@@ -367,7 +452,7 @@ export function CaseRow({ children }: { children: React.ReactNode }) {
     setEdges((current) => (current.left === left && current.right === right ? current : { left, right }));
   };
   return (
-    <View style={{ marginHorizontal: -12 }}>
+    <View style={{ marginHorizontal: -bleed }}>
       <ScrollView
         horizontal
         showsVerticalScrollIndicator={false}
@@ -376,7 +461,7 @@ export function CaseRow({ children }: { children: React.ReactNode }) {
         onScroll={(event) => sync({ x: event.nativeEvent.contentOffset.x })}
         onLayout={(event) => sync({ layout: event.nativeEvent.layout.width })}
         onContentSizeChange={(width) => sync({ content: width })}
-        contentContainerStyle={{ gap: 12, paddingBottom: 10, paddingLeft: 12, paddingRight: 12, paddingTop: 2 }}
+        contentContainerStyle={{ gap: 12, paddingBottom: padBottom, paddingLeft: bleed, paddingRight: bleed, paddingTop: padTop }}
       >
         {children}
       </ScrollView>
@@ -386,12 +471,12 @@ export function CaseRow({ children }: { children: React.ReactNode }) {
   );
 }
 
-export function StickyAdd({ onPress }: { onPress: () => void }) {
+export function StickyAdd({ label = "Add a game", onPress }: { label?: string; onPress: () => void }) {
   const insets = useSafeAreaInsets();
   const framed = useFramed();
   return (
     <Tap
-      accessibilityLabel="Add a game"
+      accessibilityLabel={label}
       onPress={onPress}
       style={{
         position: "absolute",
@@ -407,12 +492,12 @@ export function StickyAdd({ onPress }: { onPress: () => void }) {
         alignItems: "center",
       }}
     >
-      <Text style={{ color: "#FFFFFF", fontFamily: DISPLAY, fontSize: 18, letterSpacing: 0.6, textTransform: "uppercase" }}>Add a game</Text>
+      <Text style={{ color: "#FFFFFF", fontFamily: DISPLAY, fontSize: 18, letterSpacing: 0.6, textTransform: "uppercase" }}>{label}</Text>
     </Tap>
   );
 }
 
-export function BottomDither() {
+export function BottomDither({ height = DITHER_BOTTOM_HEIGHT }: { height?: number }) {
   return (
     <View
       pointerEvents="none"
@@ -422,12 +507,12 @@ export function BottomDither() {
           left: 0,
           right: 0,
           bottom: 0,
-          height: DITHER_BOTTOM_HEIGHT,
+          height,
           zIndex: 2,
           opacity: 1,
           backgroundImage: `url("${DITHER_BOTTOM}")`,
           backgroundRepeat: "repeat",
-          backgroundSize: `8px ${DITHER_BOTTOM_HEIGHT}px`,
+          backgroundSize: `8px ${height}px`,
         } as ViewStyle
       }
     >

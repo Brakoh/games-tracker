@@ -61,10 +61,12 @@ export function SkewTag({
   label,
   onPress,
   active,
+  height,
 }: {
   label: string;
   onPress: () => void;
   active?: boolean;
+  height?: number;
 }) {
   return (
     <Tap
@@ -76,8 +78,10 @@ export function SkewTag({
         borderWidth: 3,
         borderColor: INK,
         ...hardSm,
-        paddingVertical: 6,
+        paddingVertical: height ? 0 : 6,
         paddingHorizontal: 12,
+        height,
+        justifyContent: "center",
       }}
     >
       <Text
@@ -92,6 +96,31 @@ export function SkewTag({
       >
         {label}
       </Text>
+    </Tap>
+  );
+}
+
+export function SquaresTag({ onPress, label, height = 34 }: { onPress: () => void; label: string; height?: number }) {
+  return (
+    <Tap
+      accessibilityLabel={label}
+      onPress={onPress}
+      style={{
+        transform: [{ skewX: "-12deg" }],
+        backgroundColor: CARD,
+        borderWidth: 3,
+        borderColor: INK,
+        ...hardSm,
+        paddingHorizontal: 12,
+        height,
+        justifyContent: "center",
+      }}
+    >
+      <View style={{ transform: [{ skewX: "12deg" }], flexDirection: "row", gap: 4 }}>
+        {[0, 1, 2].map((dot) => (
+          <View key={dot} style={{ width: 6, height: 6, backgroundColor: INK }} />
+        ))}
+      </View>
     </Tap>
   );
 }

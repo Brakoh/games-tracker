@@ -49,7 +49,7 @@ Come si dispongono le card, tutte visibili: per titolo, con i non finiti in alto
 _Avoid_: Filtro
 
 **Impostazioni**:
-Il menu aperto dal tasto nella barra in alto. Sull'app si chiama Settings e contiene Wishes e Add systems. La schermata aperta da lì, e da Edit systems in home, si chiama Systems.
+Il menu aperto dal tasto nella barra in alto. Sull'app si chiama Settings. Le voci sono Usage tips, Share with friends, Feedback, Privacy policy e Terms of service. Per ora solo Privacy policy e Terms of service aprono una pagina. La schermata delle console, aperta da Edit systems in home, si chiama Systems.
 _Avoid_: Profilo, account
 
 **Desiderio**:

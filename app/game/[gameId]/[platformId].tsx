@@ -1,21 +1,27 @@
 import { router, useLocalSearchParams } from "expo-router";
-import { useState } from "react";
-import { Text, View } from "react-native";
+import { useRef, useState } from "react";
+import { Animated, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { bannerKey, useCaseCover } from "../../../src/case-cover";
 import { forgetCover } from "../../../src/cover-cache";
 import { copyByTitle, findCopy } from "../../../src/collection";
-import { SkewTag } from "../../../src/components/bits";
+import { SkewTag, SquaresTag } from "../../../src/components/bits";
 import { BottomSheet, ConfirmDialog, Phone, useFramed } from "../../../src/components/chrome";
 import { AddButton, Checkbox, GameSheet, type FeaturedGame } from "../../../src/components/game-sheet";
 import { Tap } from "../../../src/components/tap";
 import { platformById, platformsFor, menuPlatformId } from "../../../src/platforms";
 import { useCollection } from "../../../src/store";
-import { CARD, DISPLAY, hard, hardSm, INK, RED } from "../../../src/theme";
+import { DISPLAY, hard, INK, RED } from "../../../src/theme";
+
+const BAND = "#E3DCC8";
+const BAND_FADE = [40, 120];
+const MENU_BUTTON_HEIGHT = 34;
+const BAND_RULE = 3;
+const BUTTON_SHADOW = 3;
 
 export default function GameScreen() {
-  const params = useLocalSearchParams<{ gameId: string; platformId: string; from?: string; title?: string; cover?: string }>();
+  const params = useLocalSearchParams<{ gameId: string; platformId: string; from?: string; title?: string; cover?: string; sheet?: string }>();
   const gameId = String(params.gameId);
   const platformId = String(params.platformId);
   const copies = useCollection((state) => state.copies);
@@ -37,10 +43,13 @@ export default function GameScreen() {
   const game = catalog[gameId] ?? { id: gameId, title, platforms: [platformId], cover: params.cover };
   const front = useCaseCover(gameId, platformId, title) || (game.cover?.startsWith("https://images.igdb.com/") ? game.cover : undefined);
   const top = framed ? 12 : Math.max(insets.top, 12);
+  const band = top * 2 + MENU_BUTTON_HEIGHT + BUTTON_SHADOW + BAND_RULE;
+  const scrollY = useRef(new Animated.Value(0)).current;
   const back = () => {
-    if (added) router.replace("/");
+    const home = params.sheet === "games" ? "/?sheet=games" : "/";
+    if (added) router.replace(home);
     else if (params.from === "featured" && router.canGoBack()) router.back();
-    else router.replace(params.from === "home" ? "/" : `/shelf/${platformId}`);
+    else router.replace(params.from === "home" ? home : params.sheet === "games" ? `/shelf/${platformId}?from=games` : `/shelf/${platformId}`);
   };
   const openFeatured = (featured: FeaturedGame) => {
     const owned = findCopy(copies, featured.id, platformId) ?? copyByTitle(copies, catalog, featured.title, platformId);
@@ -78,11 +87,31 @@ export default function GameScreen() {
           bottomSpace={copy ? 24 : 110}
           onFeatured={copy ? openFeatured : undefined}
           bannerSaveKey={copy ? bannerKey(gameId, platformId) : undefined}
+          scrollY={scrollY}
         />
       ) : null}
-      <View style={{ position: "absolute", top, left: 12, right: 12, flexDirection: "row", justifyContent: "space-between", zIndex: 4 }}>
-        <SkewTag label="Back" onPress={back} />
-        {copy ? <MenuButton onPress={() => setMenu(true)} /> : null}
+      <Animated.View
+        pointerEvents="none"
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          right: 0,
+          height: band,
+          zIndex: 3,
+          backgroundColor: BAND,
+          borderBottomWidth: BAND_RULE,
+          borderBottomColor: INK,
+          opacity: scrollY.interpolate({
+            inputRange: BAND_FADE,
+            outputRange: [0, 1],
+            extrapolate: "clamp",
+          }),
+        }}
+      />
+      <View style={{ position: "absolute", top, left: 12, right: 12, flexDirection: "row", justifyContent: "space-between", alignItems: "center", zIndex: 4 }}>
+        <SkewTag label="Back" onPress={back} height={MENU_BUTTON_HEIGHT} />
+        {copy ? <SquaresTag label="Settings" onPress={() => setMenu(true)} height={MENU_BUTTON_HEIGHT} /> : null}
       </View>
       {copy ? (
         <BottomSheet visible={menu} onClose={() => setMenu(false)}>
@@ -114,30 +143,5 @@ export default function GameScreen() {
         }}
       />
     </Phone>
-  );
-}
-
-function MenuButton({ onPress }: { onPress: () => void }) {
-  return (
-    <Tap
-      accessibilityLabel="Settings"
-      onPress={onPress}
-      style={{
-        transform: [{ skewX: "-12deg" }],
-        backgroundColor: CARD,
-        borderWidth: 3,
-        borderColor: INK,
-        ...hardSm,
-        paddingHorizontal: 12,
-        height: 34,
-        justifyContent: "center",
-      }}
-    >
-      <View style={{ transform: [{ skewX: "12deg" }], flexDirection: "row", gap: 4 }}>
-        {[0, 1, 2].map((dot) => (
-          <View key={dot} style={{ width: 6, height: 6, backgroundColor: INK }} />
-        ))}
-      </View>
-    </Tap>
   );
 }

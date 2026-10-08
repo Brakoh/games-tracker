@@ -25,9 +25,13 @@ export function GameSheet({
   topSpace = 16,
   bottomSpace = 24,
   children,
+  platformNote,
+  platformNames,
   onFeatured,
   bannerSaveKey,
+  scrollY: sharedScrollY,
 }: {
+  scrollY?: Animated.Value;
   onFeatured?: (game: FeaturedGame) => void;
   bannerSaveKey?: string;
   topSpace?: number;
@@ -35,6 +39,8 @@ export function GameSheet({
   title: string;
   platformId: string;
   platformName: string;
+  platformNote?: React.ReactNode;
+  platformNames?: string[];
   cover?: string;
   finished?: boolean;
   children?: React.ReactNode;
@@ -45,15 +51,19 @@ export function GameSheet({
   const bannerImage = saved ?? (bannerSaveKey ? undefined : info?.banner);
   const banner = details.isLoading || Boolean(info?.banner) || Boolean(saved);
   const related = info?.related ?? [];
-  const scrollY = useRef(new Animated.Value(0)).current;
+  const ownScrollY = useRef(new Animated.Value(0)).current;
+  const scrollY = sharedScrollY ?? ownScrollY;
   const list = platformsFor();
-  const consoles = info?.platforms?.length
-    ? [...new Set(info.platforms.map((entry) => (entry.id && platformById(list, entry.id)?.name) || entry.name))].sort(
-        (a, b) => Number(b === platformName) - Number(a === platformName),
-      )
-    : [platformName];
+  const fromCatalog = platformNames?.filter((name) => name.trim().length > 0);
+  const consoles = fromCatalog?.length
+    ? fromCatalog
+    : info?.platforms?.length
+      ? [...new Set(info.platforms.map((entry) => (entry.id && platformById(list, entry.id)?.name) || entry.name))].sort(
+          (a, b) => Number(b === platformName) - Number(a === platformName),
+        )
+      : [platformName];
   const facts = [
-    { label: consoles.length > 1 ? "Platforms" : "Platform", value: consoles.join(", ") },
+    ...(platformNote ? [] : [{ label: consoles.length > 1 ? "Platforms" : "Platform", value: consoles.join(", ") }]),
     { label: "Developer", value: info?.developer },
     { label: "Publisher", value: info?.publisher && info.publisher !== info.developer ? info.publisher : undefined },
     { label: "Released", value: info?.year ? String(info.year) : undefined },
@@ -95,13 +105,14 @@ export function GameSheet({
           <View style={{ flex: 1, gap: 6, paddingLeft: 6, paddingTop: banner ? OVERLAP - 8 : 0 }}>
             <Text style={display(22)}>{title}</Text>
             <View style={{ gap: 4, marginTop: 4 }}>
+              {platformNote}
               {facts.map((fact) => (
                 <Fact key={fact.label} label={fact.label} value={fact.value} />
               ))}
               {details.isLoading ? <Fact label="Developer" value="…" /> : null}
             </View>
           </View>
-          <View style={{ width: 112 }}>
+          <View style={{ width: 112, marginRight: 10 }}>
             <CaseFace platformId={platformId} cover={cover} finished={finished} badge={30} />
           </View>
         </View>
@@ -154,20 +165,20 @@ function Fact({ label, value }: { label: string; value: string }) {
   );
 }
 
-export function AddButton({ label, onPress }: { label: string; onPress: () => void }) {
+export function AddButton({ label, onPress, enabled = true }: { label: string; onPress: () => void; enabled?: boolean }) {
   const insets = useSafeAreaInsets();
   const framed = useFramed();
   return (
     <Tap
       accessibilityLabel={label}
-      onPress={onPress}
+      onPress={enabled ? onPress : undefined}
       style={{
         position: "absolute",
         left: 16,
         right: 16,
         bottom: framed ? 16 : Math.max(insets.bottom, 16),
         zIndex: 3,
-        backgroundColor: RED,
+        backgroundColor: enabled ? RED : "#8A8A8A",
         borderWidth: 3,
         borderColor: INK,
         ...hard,
@@ -180,7 +191,17 @@ export function AddButton({ label, onPress }: { label: string; onPress: () => vo
   );
 }
 
-export function Checkbox({ label, checked, onPress }: { label: string; checked: boolean; onPress: () => void }) {
+export function Checkbox({
+  label,
+  checked,
+  onPress,
+  quiet = false,
+}: {
+  label: string;
+  checked: boolean;
+  onPress: () => void;
+  quiet?: boolean;
+}) {
   return (
     <Tap
       accessibilityRole="checkbox"
@@ -189,9 +210,11 @@ export function Checkbox({ label, checked, onPress }: { label: string; checked: 
       style={{
         flexDirection: "row",
         alignItems: "center",
-        gap: 12,
-        paddingVertical: 12,
-        paddingHorizontal: 12,
+        alignSelf: "stretch",
+        minWidth: 0,
+        gap: quiet ? 8 : 12,
+        paddingVertical: quiet ? 8 : 12,
+        paddingHorizontal: quiet ? 8 : 12,
         backgroundColor: CARD,
         borderWidth: 3,
         borderColor: INK,
@@ -200,18 +223,29 @@ export function Checkbox({ label, checked, onPress }: { label: string; checked: 
     >
       <View
         style={{
-          width: 26,
-          height: 26,
+          width: quiet ? 16 : 26,
+          height: quiet ? 16 : 26,
           alignItems: "center",
           justifyContent: "center",
-          borderWidth: 3,
+          borderWidth: quiet ? 2 : 3,
           borderColor: INK,
           backgroundColor: checked ? RED : PAPER,
         }}
       >
-        {checked ? <Text style={{ color: "#FFFFFF", fontFamily: DISPLAY, fontSize: 16, lineHeight: 18 }}>✓</Text> : null}
+        {checked ? (
+          <Text style={{ color: "#FFFFFF", fontFamily: quiet ? BODY : DISPLAY, fontSize: quiet ? 11 : 16, lineHeight: quiet ? 13 : 18 }}>✓</Text>
+        ) : null}
       </View>
-      <Text style={{ ...display(18), color: INK }}>{label}</Text>
+      <Text
+        numberOfLines={quiet ? 1 : undefined}
+        style={
+          quiet
+            ? { flex: 1, minWidth: 0, fontFamily: BODY, fontSize: 12, lineHeight: 16, color: INK }
+            : { ...display(18), color: INK }
+        }
+      >
+        {label}
+      </Text>
     </Tap>
   );
 }

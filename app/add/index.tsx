@@ -6,7 +6,7 @@ import { canAdd, possessionId, titleKey } from "../../src/collection";
 import { ConsoleLogo, SearchField, display, frame } from "../../src/components/bits";
 import { Phone } from "../../src/components/chrome";
 import { Tap } from "../../src/components/tap";
-import { menuPlatformId, platformById, platformsFor, systemIds, visibleOrder } from "../../src/platforms";
+import { menuPlatformId, platformById, platformsFor, systemIds } from "../../src/platforms";
 import { useCollection } from "../../src/store";
 import { INK } from "../../src/theme";
 import type { CatalogGame, PlatformDef } from "../../src/types";
@@ -23,16 +23,17 @@ export default function AddScreen() {
   const [query, setQuery] = useState("");
   const [viewport, setViewport] = useState(0);
   const debounced = useDebounced(query);
-  const menuIds = fixed ? [menuPlatformId(fixed)] : visibleOrder(order, active);
-  const allowed = menuIds.flatMap((id) => systemIds(id));
+  const list = platformsFor(switch2RawgId);
+  const menuIds = fixed ? [menuPlatformId(fixed)] : list.map((platform) => platform.id);
+  const allowed = fixed ? menuIds.flatMap((id) => systemIds(id)) : menuIds;
   const search = useGameSearch(debounced, allowed);
-  const games = uniqueTitles(search.data?.pages.flatMap((page) => page.games) ?? [], copies)
-    .filter((game) => canAdd(game, fixed, active, copies));
+  const games = uniqueTitles(search.data?.pages.flatMap((page) => page.games) ?? [], copies).filter((game) =>
+    fixed ? canAdd(game, fixed, active, copies) : game.platforms.length > 0,
+  );
   const loadMore = () => {
     if (search.hasNextPage && !search.isFetchingNextPage) void search.fetchNextPage();
   };
-  const list = platformsFor(switch2RawgId);
-  const title = fixed ? `Add a game` : "Add a game";
+  const title = "Add a game";
 
   return (
     <Phone title={title} showBack onBack={() => router.back()}>
@@ -94,7 +95,13 @@ function uniqueTitles(games: CatalogGame[], copies: { gameId: string }[]) {
   for (const game of games) {
     const key = titleKey(game.title);
     const kept = byTitle.get(key);
-    if (!kept || (!owned.has(kept.id) && owned.has(game.id))) byTitle.set(key, game);
+    if (!kept) {
+      byTitle.set(key, { ...game, platforms: [...game.platforms] });
+      continue;
+    }
+    const platforms = [...new Set([...kept.platforms, ...game.platforms])];
+    const primary = !owned.has(kept.id) && owned.has(game.id) ? game : kept;
+    byTitle.set(key, { ...primary, platforms });
   }
   return [...byTitle.values()];
 }
