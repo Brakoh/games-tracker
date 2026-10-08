@@ -8,7 +8,7 @@ export default function TermsScreen() {
         Collection is a personal library for the video games you own: which console, and whether a game is Finished. You can use it for that. Your list stays on this device. If the browser memory is cleared, the list is gone, and we cannot put it back.
       </P>
       <P>
-        The words in a search come from RAWG (rawg.io). Covers, screenshots, and game details come from IGDB (igdb.com). Those facts and pictures belong to their sources. This app does not give you the right to copy the IGDB catalog and publish it as your own database.
+        Search results, covers, screenshots, and game details come from IGDB (igdb.com). Those facts and pictures belong to IGDB. This app does not give you the right to copy the IGDB catalog and publish it as your own database.
       </P>
       <P>
         We use the IGDB API under the notes published at{" "}
@@ -19,7 +19,7 @@ export default function TermsScreen() {
         IGDB allows the data to be saved and shown by the app, and they prefer that, so the app is not asking them for the same picture on every visit. Covers of games in the library are kept on the device until the game is removed. Their limit is 4 requests per second. The app does not call IGDB from the browser. A small server does it, because a browser call would expose the login. IGDB says you may keep data already received if a partnership ends. We do not have that partnership: this is a personal library.
       </P>
       <P>
-        The app is offered as it is. Game facts can be wrong or missing, because they come from IGDB and RAWG.
+        The app is offered as it is. Game facts can be wrong or missing, because they come from IGDB.
       </P>
     </LegalPage>
   );

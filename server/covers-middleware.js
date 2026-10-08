@@ -113,6 +113,33 @@ function detailsHandler(req, res) {
     });
 }
 
+function catalogHandler(req, res) {
+  readBody(req)
+    .then(async (raw) => {
+      const { igdbConfigured, searchCatalog } = igdbModule();
+      if (!igdbConfigured()) {
+        send(res, 200, { configured: false, games: [], nextPage: undefined });
+        return;
+      }
+      let parsed = {};
+      try {
+        parsed = raw ? JSON.parse(raw) : {};
+      } catch {
+        send(res, 400, { configured: true, games: [], nextPage: undefined });
+        return;
+      }
+      const query = typeof parsed.query === "string" ? parsed.query.slice(0, 200) : "";
+      const page = typeof parsed.page === "number" && parsed.page > 0 ? Math.min(40, Math.floor(parsed.page)) : 1;
+      const platformIds = Array.isArray(parsed.platformIds)
+        ? parsed.platformIds.flatMap((id) => (typeof id === "string" ? [id.slice(0, 40)] : [])).slice(0, 40)
+        : [];
+      const result = await searchCatalog(query, page, platformIds);
+      send(res, 200, { configured: true, ...result });
+    })
+    .catch(() => {
+      if (!res.writableEnded) send(res, 502, { configured: true, games: [], nextPage: undefined });
+    });
+}
 function coversMiddleware(metroMiddleware) {
   return (req, res, next) => {
     const path = String(req.url || "").split("?")[0];
@@ -126,6 +153,10 @@ function coversMiddleware(metroMiddleware) {
     }
     if (req.method === "POST" && path === "/switch-2") {
       switch2Handler(req, res);
+      return;
+    }
+    if (req.method === "POST" && path === "/catalog") {
+      catalogHandler(req, res);
       return;
     }
     return metroMiddleware(req, res, next);

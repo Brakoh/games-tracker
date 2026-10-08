@@ -8,10 +8,7 @@ export default function PrivacyScreen() {
         Collection keeps your game library on this device. There is no account. The list of games, the consoles you turned on, Finished, and Wishes stay in the memory of the browser or the app. They are not sent to us, and we do not sell them.
       </P>
       <P>
-        When you search for a game, the words you type are sent to RAWG so the catalog can answer. RAWG is a separate service (rawg.io). We do not add your name to that search.
-      </P>
-      <P>
-        Covers, screenshots, and the details on a game — developer, publisher, year, genre, and similar games — come from IGDB (igdb.com). The app does not talk to IGDB from the page itself. IGDB does not allow that, because a request from the browser would expose the login. A small server asks IGDB for us and sends back only the game information. That server does not receive your library.
+        When you search for a game, or open a cover, a screenshot, or the details, the words go to a small server. That server asks IGDB (igdb.com) and sends back only the game information. We do not add your name to that search, and the server does not receive your library. IGDB does not allow the page itself to ask, because a request from the browser would expose the login.
       </P>
       <P>
         IGDB’s API is free for non-commercial use under the Twitch Developer Service Agreement. Their own notes are at{" "}

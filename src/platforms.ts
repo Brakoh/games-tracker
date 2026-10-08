@@ -108,6 +108,11 @@ export function platformById(list: PlatformDef[], id: string) {
   return list.find((platform) => platform.id === id);
 }
 
+export function brandName(id: string) {
+  const label = BRANDS.find((brand) => brand.ids.includes(menuPlatformId(id)))?.label ?? "";
+  return label ? label.charAt(0).toUpperCase() + label.slice(1) : "";
+}
+
 export function platformByRawgId(list: PlatformDef[], rawgId: number) {
   if (!rawgId) return undefined;
   return list.find((platform) => platform.rawgId === rawgId);

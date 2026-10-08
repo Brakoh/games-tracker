@@ -1,23 +1,21 @@
-import { useInfiniteQuery } from "@tanstack/react-query";
+import { keepPreviousData, useInfiniteQuery } from "@tanstack/react-query";
 
-import { fetchCatalogPage } from "./rawg";
-import { useCollection } from "./store";
+import { fetchCatalogPage } from "./catalog";
 
 export function useGameSearch(query: string, allowedPlatformIds: string[]) {
-  const switch2RawgId = useCollection((state) => state.switch2RawgId);
   const allowedKey = [...allowedPlatformIds].sort().join(",");
 
   return useInfiniteQuery({
-    queryKey: ["catalog", query, allowedKey, switch2RawgId],
+    queryKey: ["catalog", query, allowedKey],
     initialPageParam: 1,
     queryFn: ({ pageParam }) =>
       fetchCatalogPage({
         query,
         page: pageParam,
         allowedPlatformIds,
-        switch2RawgId,
-        localGames: Object.values(useCollection.getState().catalog),
       }),
     getNextPageParam: (last) => last.nextPage,
+    staleTime: 5 * 60 * 1000,
+    placeholderData: keepPreviousData,
   });
 }

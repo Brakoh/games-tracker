@@ -53,8 +53,10 @@ export function Tap({
   accessibilityLabel,
   accessibilityRole = "button",
   hitSlop,
+  onLongPress,
 }: {
   onPress?: () => void;
+  onLongPress?: () => void;
   style?: StyleProp<ViewStyle>;
   children?: ReactNode | ((shade: Animated.AnimatedInterpolation<number>) => ReactNode);
   shade?: boolean;
@@ -93,6 +95,8 @@ export function Tap({
       accessibilityLabel={accessibilityLabel}
       hitSlop={hitSlop}
       onPress={onPress}
+      onLongPress={onLongPress}
+      delayLongPress={420}
       onPressIn={() => sink(1)}
       onPressOut={() => sink(0)}
       style={outer}

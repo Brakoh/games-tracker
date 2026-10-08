@@ -111,7 +111,7 @@ export function useSavedBanner(key: string | undefined, remote: string | undefin
 
 const PASSING_GC = 60_000;
 
-export function useCaseCover(gameId: string, platformId: string, title: string) {
+export function useCaseCover(gameId: string, platformId: string, title: string, enabled = true) {
   const owned = useCollection((state) => state.copies.some((copy) => copy.gameId === gameId && copy.platformId === platformId));
   const query = useQuery({
     queryKey: [owned ? "case-cover" : "passing-cover", gameId, platformId, title],
@@ -120,7 +120,7 @@ export function useCaseCover(gameId: string, platformId: string, title: string) 
     gcTime: owned ? Infinity : PASSING_GC,
     retry: 2,
     networkMode: "always",
-    enabled: title.trim().length > 0,
+    enabled: enabled && title.trim().length > 0,
   });
   return query.data || undefined;
 }

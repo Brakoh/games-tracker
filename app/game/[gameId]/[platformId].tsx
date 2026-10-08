@@ -28,7 +28,6 @@ export default function GameScreen() {
   const catalog = useCollection((state) => state.catalog);
   const switch2RawgId = useCollection((state) => state.switch2RawgId);
   const toggleFinished = useCollection((state) => state.toggleFinished);
-  const togglePlaying = useCollection((state) => state.togglePlaying);
   const removeCopy = useCollection((state) => state.removeCopy);
   const addCopy = useCollection((state) => state.addCopy);
   const insets = useSafeAreaInsets();
@@ -86,6 +85,7 @@ export default function GameScreen() {
           topSpace={top + 52}
           bottomSpace={copy ? 24 : 110}
           onFeatured={copy ? openFeatured : undefined}
+          onClearFinished={copy?.finished ? () => toggleFinished(gameId, platformId) : undefined}
           bannerSaveKey={copy ? bannerKey(gameId, platformId) : undefined}
           scrollY={scrollY}
         />
@@ -115,8 +115,15 @@ export default function GameScreen() {
       </View>
       {copy ? (
         <BottomSheet visible={menu} onClose={() => setMenu(false)}>
-              <Checkbox label="Currently playing" checked={!!copy.playing} onPress={() => togglePlaying(gameId, platformId)} />
-              <Checkbox label="Complete" checked={copy.finished} onPress={() => toggleFinished(gameId, platformId)} />
+              <Checkbox
+                label="Mark as completed"
+                checked={copy.finished}
+                onPress={() => {
+                  const marking = !copy.finished;
+                  toggleFinished(gameId, platformId);
+                  if (marking) setMenu(false);
+                }}
+              />
               <Tap
                 accessibilityLabel="Remove from library"
                 onPress={() => {

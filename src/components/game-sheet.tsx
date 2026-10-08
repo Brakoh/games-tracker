@@ -28,11 +28,13 @@ export function GameSheet({
   platformNote,
   platformNames,
   onFeatured,
+  onClearFinished,
   bannerSaveKey,
   scrollY: sharedScrollY,
 }: {
   scrollY?: Animated.Value;
   onFeatured?: (game: FeaturedGame) => void;
+  onClearFinished?: () => void;
   bannerSaveKey?: string;
   topSpace?: number;
   bottomSpace?: number;
@@ -113,7 +115,7 @@ export function GameSheet({
             </View>
           </View>
           <View style={{ width: 112, marginRight: 10 }}>
-            <CaseFace platformId={platformId} cover={cover} finished={finished} badge={30} />
+            <CaseFace platformId={platformId} cover={cover} finished={finished} badge={30} onClearFinished={onClearFinished} />
           </View>
         </View>
         {info?.summary ? (

@@ -249,7 +249,7 @@ export function SortBar({ sort, onSort, nowrap }: { sort: SortMode; onSort: (sor
   );
 }
 
-export function CaseFace({ cover, finished, badge }: { platformId: string; cover?: string; finished?: boolean; badge?: number }) {
+export function CaseFace({ cover, finished, badge, onClearFinished }: { platformId: string; cover?: string; finished?: boolean; badge?: number; onClearFinished?: () => void }) {
   const [loadedCover, setLoadedCover] = useState<string | null>(null);
   const [failedCover, setFailedCover] = useState<string | null>(null);
   const ready = !!cover && loadedCover === cover;
@@ -284,7 +284,7 @@ export function CaseFace({ cover, finished, badge }: { platformId: string; cover
           {missing ? <MissingCover width={47} /> : null}
         </View>
       </View>
-      {finished ? <FinishedBadge size={badge} inset={6} /> : null}
+      {finished ? <FinishedBadge size={badge} inset={6} onPress={onClearFinished} /> : null}
     </View>
   );
 }
@@ -301,6 +301,7 @@ export function CaseTile({
   lines = 2,
   inert = false,
   onOpen,
+  onLongPress,
 }: {
   copy: Copy;
   title: string;
@@ -309,6 +310,7 @@ export function CaseTile({
   lines?: number;
   inert?: boolean;
   onOpen: () => void;
+  onLongPress?: () => void;
 }) {
   const stored = useCollection((state) => state.catalog[copy.gameId]?.cover);
   const front = useCaseCover(copy.gameId, copy.platformId, title) || igdbCover(stored);
@@ -329,7 +331,7 @@ export function CaseTile({
   );
   if (inert) return <View style={{ width: width ?? "100%", gap: 6 }}>{face}</View>;
   return (
-    <Tap shade={false} onPress={onOpen} accessibilityLabel={title} style={{ width: width ?? "100%", gap: 6 }}>
+    <Tap shade={false} onPress={onOpen} onLongPress={onLongPress} accessibilityLabel={title} style={{ width: width ?? "100%", gap: 6 }}>
       {(dim) => (
         <>
           <View>

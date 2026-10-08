@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Animated, Easing, Image, Platform, Text, TextInput, View, type TextStyle, type ViewStyle } from "react-native";
+import { ActivityIndicator, Animated, Easing, Image, Platform, Pressable, Text, TextInput, View, type TextStyle, type ViewStyle } from "react-native";
 import { SvgXml } from "react-native-svg";
 
 import { CAMERA_RATIO, CAMERA_XML } from "../camera-icon";
@@ -29,15 +29,11 @@ export function FinishedRosette({ size, inset }: { size: number; inset: number }
 
 const BADGE = 27.28;
 
-export function FinishedBadge({ size = BADGE, inset }: { size?: number; inset: number }) {
-  return (
+export function FinishedBadge({ size = BADGE, inset, onPress }: { size?: number; inset: number; onPress?: () => void }) {
+  const badge = (
     <View
       pointerEvents="none"
       style={{
-        position: "absolute",
-        top: inset,
-        left: inset,
-        zIndex: 2,
         width: BADGE,
         height: BADGE,
         transformOrigin: "top left",
@@ -54,6 +50,18 @@ export function FinishedBadge({ size = BADGE, inset }: { size?: number; inset: n
         <SvgXml xml={FINISHED_XML} width={22.3274} height={22.3062} />
       </View>
     </View>
+  );
+  if (!onPress) {
+    return (
+      <View pointerEvents="none" style={{ position: "absolute", top: inset, left: inset, zIndex: 2 }}>
+        {badge}
+      </View>
+    );
+  }
+  return (
+    <Tap accessibilityLabel="Mark as completed" onPress={onPress} hitSlop={10} style={{ position: "absolute", top: inset, left: inset, zIndex: 3 }}>
+      {badge}
+    </Tap>
   );
 }
 
@@ -191,6 +199,11 @@ export function SearchField({
   labeled?: boolean;
   divider?: "above" | "below";
 }) {
+  const input = useRef<TextInput>(null);
+  const clear = () => {
+    onChange("");
+    input.current?.focus();
+  };
   return (
     <View
       className="bg-paper px-3 pb-3"
@@ -202,27 +215,48 @@ export function SearchField({
     >
       {divider === "above" ? <View style={{ height: 1, backgroundColor: INK, marginBottom: 12 }} /> : null}
       {labeled ? <Text style={kicker}>Search</Text> : null}
-      <TextInput
-        value={value}
-        onChangeText={onChange}
-        placeholder={placeholder}
-        placeholderTextColor="rgba(12,11,8,0.45)"
-        autoCapitalize="none"
-        autoCorrect={false}
-        style={{
-          backgroundColor: CARD,
-          color: INK,
-          borderWidth: 3,
-          borderColor: INK,
-          ...hard,
-          paddingVertical: 12,
-          paddingHorizontal: 14,
-          fontFamily: BODY,
-          fontSize: 15,
-        }}
-      />
+      <View>
+        <TextInput
+          ref={input}
+          value={value}
+          onChangeText={onChange}
+          placeholder={placeholder}
+          placeholderTextColor="rgba(12,11,8,0.45)"
+          autoCapitalize="none"
+          autoCorrect={false}
+          blurOnSubmit={false}
+          style={{
+            backgroundColor: CARD,
+            color: INK,
+            borderWidth: 3,
+            borderColor: INK,
+            ...hard,
+            paddingVertical: 12,
+            paddingLeft: 14,
+            paddingRight: value ? 40 : 14,
+            fontFamily: BODY,
+            fontSize: 15,
+          }}
+        />
+        {value ? (
+          <Pressable
+            accessibilityLabel="Clear search"
+            onPress={clear}
+            {...(Platform.OS === "web" ? { onMouseDown: (event: { preventDefault: () => void }) => event.preventDefault() } : {})}
+            style={{ position: "absolute", top: 0, right: 4, bottom: 0, width: 36, alignItems: "center", justifyContent: "center" }}
+          >
+            <Text style={{ fontFamily: BODY, fontSize: 18, lineHeight: 20, color: INK }}>×</Text>
+          </Pressable>
+        ) : null}
+      </View>
     </View>
   );
+}
+
+export function SearchNotice({ pending, term, empty }: { pending: boolean; term: string; empty: boolean }) {
+  if (pending) return <ActivityIndicator color={INK} />;
+  if (!empty || !term.trim()) return null;
+  return <Text style={{ fontFamily: BODY, fontSize: 12, lineHeight: 18, color: INK }}>No games found for "{term.trim()}"</Text>;
 }
 
 const LOGO_W = 48;

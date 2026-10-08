@@ -15,7 +15,8 @@ export default function ConfirmStep() {
   const addCopy = useCollection((state) => state.addCopy);
   const game = catalog[gameId] ?? { id: gameId, title: gameId, platforms: [platformId] };
   const name = platformById(platformsFor(switch2RawgId), menuPlatformId(platformId))?.name ?? platformId;
-  const front = useCaseCover(gameId, platformId, game.title) || (game.cover?.startsWith("https://images.igdb.com/") ? game.cover : undefined);
+  const savedCover = game.cover?.startsWith("https://images.igdb.com/") ? game.cover : undefined;
+  const front = useCaseCover(gameId, platformId, game.title, !savedCover) || savedCover;
 
   return (
     <Phone

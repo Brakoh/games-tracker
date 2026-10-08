@@ -1,19 +1,21 @@
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Redirect, router, useLocalSearchParams } from "expo-router";
-import { useState } from "react";
+import { Redirect, router } from "expo-router";
+import { useEffect, useState } from "react";
 import { Platform, Pressable, ScrollView, Text, View } from "react-native";
 
-import { EmptyNote, SkewTag, SquaresTag } from "../src/components/bits";
+import { ConsoleLogo, EmptyNote, SkewTag, SquaresTag } from "../src/components/bits";
 import { SettingsMenu } from "./settings";
 import { BottomDither, CaseRow, CaseTile, ConfirmDialog, Phone, SideSheet, StickyAdd, useFramed } from "../src/components/chrome";
 import { Tap } from "../src/components/tap";
 import { PlatformList, PlatformRow } from "../src/components/platform-row";
 import { sortCopies } from "../src/collection";
-import { platformById, platformsFor, menuPlatformId, systemIds, shownOrder } from "../src/platforms";
+import { brandName, platformById, platformsFor, menuPlatformId, systemIds, shownOrder } from "../src/platforms";
 import { useCollection } from "../src/store";
-import { DISPLAY, INK, RED, hardSm } from "../src/theme";
+import { BODY, CARD, DISPLAY, INK, RED, hardSm } from "../src/theme";
 
 const LINE_PAPER = "#E7E2D2";
+
+let sessionTab: "games" | "platforms" | null = null;
 
 export default function HomeScreen() {
   const onboarded = useCollection((state) => state.onboarded);
@@ -27,16 +29,18 @@ export default function HomeScreen() {
   const reorder = useCollection((state) => state.reorder);
   const toggleFavorite = useCollection((state) => state.toggleFavorite);
   const turnOff = useCollection((state) => state.turnOff);
-  const params = useLocalSearchParams<{ sheet?: string }>();
   const insets = useSafeAreaInsets();
   const framed = useFramed();
   const [pendingOff, setPendingOff] = useState<string | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const sheet = params.sheet === "games" ? "games" : "platforms";
+  const [sheet, setSheet] = useState<"games" | "platforms">(sessionTab ?? "games");
   const openSheet = (next: "platforms" | "games") => {
-    if (next === "games") router.setParams({ sheet: "games" });
-    else router.replace("/");
+    sessionTab = next;
+    setSheet(next);
   };
+  useEffect(() => {
+    sessionTab = sheet;
+  }, [sheet]);
 
   if (!onboarded) return <Redirect href="/platforms" />;
 
@@ -68,7 +72,9 @@ export default function HomeScreen() {
           gap: 8,
           paddingHorizontal: 12,
           paddingTop: framed ? 12 : Math.max(insets.top, 12),
-          paddingBottom: 4,
+          paddingBottom: 8,
+          borderBottomWidth: 3,
+          borderBottomColor: INK,
         }}
       >
         <SkewTag label="games" height={34} active={sheet === "games"} onPress={() => openSheet("games")} />
@@ -106,47 +112,67 @@ export default function HomeScreen() {
         <EmptyNote />
       ) : (
         <ScrollView showsVerticalScrollIndicator={false} showsHorizontalScrollIndicator={false} contentContainerStyle={{ padding: 12, paddingBottom: 120, gap: 18 }}>
-          {sections.map((section) => (
-            <View
-              key={section.id}
-              style={{
-                paddingTop: 6,
-                paddingBottom: 10,
-                paddingHorizontal: 10,
-                borderWidth: 3,
-                borderColor: INK,
-                backgroundColor: LINE_PAPER,
-                ...hardSm,
-              }}
-            >
-              <Tap
-                accessibilityLabel={section.title}
-                onPress={() => router.push(`/shelf/${section.id}?from=games`)}
-                style={{ flexDirection: "row", alignItems: "center", gap: 8 }}
+          {sections.map((section) => {
+            const open = () => router.push(`/shelf/${section.id}?from=games`);
+            const brand = brandName(section.id);
+            return (
+              <View
+                key={section.id}
+                style={{
+                  paddingTop: 10,
+                  paddingHorizontal: 10,
+                  borderWidth: 3,
+                  borderColor: INK,
+                  backgroundColor: LINE_PAPER,
+                  ...hardSm,
+                }}
               >
-                <Text style={{ flexShrink: 0, fontFamily: DISPLAY, fontSize: 22, letterSpacing: 0.5, textTransform: "uppercase", color: INK }}>{section.title}</Text>
-                <DotRule />
-              </Tap>
-              <Pressable
-                onPress={() => router.push(`/shelf/${section.id}?from=games`)}
-                style={{ marginTop: 8, touchAction: "pan-x" }}
-              >
-                <CaseRow bleed={10} padTop={0} padBottom={0}>
-                  {section.copies.map((copy) => (
-                    <CaseTile
-                      key={`${copy.gameId}-${copy.platformId}`}
-                      copy={copy}
-                      title={titleOf(copy.gameId)}
-                      width={104}
-                      lines={1}
-                      inert
-                      onOpen={() => {}}
-                    />
-                  ))}
-                </CaseRow>
-              </Pressable>
-            </View>
-          ))}
+                <Tap accessibilityLabel={brand ? `${section.title}, ${brand}` : section.title} onPress={open} style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+                  <LogoMark uri={platformById(list, section.id)?.logo} />
+                  <View style={{ flex: 1, minWidth: 0 }}>
+                    <Text numberOfLines={1} style={{ fontFamily: DISPLAY, fontSize: 22, lineHeight: 24, letterSpacing: 0.5, textTransform: "uppercase", color: INK }}>{section.title}</Text>
+                    {brand ? <Text numberOfLines={1} style={{ marginTop: 2, fontFamily: BODY, fontSize: 11, lineHeight: 14, color: INK }}>{brand}</Text> : null}
+                  </View>
+                </Tap>
+                <Pressable onPress={open} style={{ marginTop: 10, touchAction: "pan-x" }}>
+                  <CaseRow bleed={10} padTop={0} padBottom={0}>
+                    {section.copies.map((copy) => (
+                      <CaseTile
+                        key={`${copy.gameId}-${copy.platformId}`}
+                        copy={copy}
+                        title={titleOf(copy.gameId)}
+                        width={104}
+                        lines={1}
+                        inert
+                        onOpen={() => {}}
+                      />
+                    ))}
+                  </CaseRow>
+                </Pressable>
+                <Tap
+                  accessibilityLabel={`view more, ${section.title}`}
+                  onPress={open}
+                  style={{
+                    marginHorizontal: -10,
+                    marginTop: 8,
+                    borderTopWidth: 2,
+                    borderTopColor: INK,
+                    paddingHorizontal: 10,
+                    paddingVertical: 8,
+                    flexDirection: "row",
+                    alignItems: "center",
+                  }}
+                >
+                  <Text style={{ fontFamily: BODY, fontSize: 12, lineHeight: 16, color: INK }}>
+                    <Text style={{ color: RED }}>★ </Text>
+                    {section.copies.length}
+                  </Text>
+                  <View style={{ flex: 1 }} />
+                  <Text style={{ fontFamily: BODY, fontSize: 12, lineHeight: 16, color: INK }}>view more &gt;</Text>
+                </Tap>
+              </View>
+            );
+          })}
         </ScrollView>
       )}
       <BottomDither />
@@ -172,28 +198,27 @@ export default function HomeScreen() {
   );
 }
 
-function DotRule() {
-  if (Platform.OS === "web") {
-    return (
-      <View
-        style={
-          {
-            flex: 1,
-            height: 4,
-            backgroundImage: "radial-gradient(#0C0B08 0.7px, transparent 0.8px)",
-            backgroundSize: "4px 4px",
-            backgroundRepeat: "repeat-x",
-            backgroundPosition: "left center",
-          } as object
-        }
-      />
-    );
-  }
+function LogoMark({ uri }: { uri?: string }) {
   return (
-    <View style={{ flex: 1, flexDirection: "row", alignItems: "center", overflow: "hidden", gap: 3 }}>
-      {Array.from({ length: 48 }, (_, index) => (
-        <View key={index} style={{ width: 1, height: 1, borderRadius: 1, backgroundColor: INK }} />
-      ))}
+    <View
+      style={{
+        width: 48,
+        height: 48,
+        borderWidth: 2,
+        borderColor: INK,
+        backgroundColor: CARD,
+        alignItems: "center",
+        justifyContent: "center",
+        overflow: "hidden",
+        ...(Platform.OS === "web"
+          ? ({
+              backgroundImage: "radial-gradient(#0C0B08 0.55px, transparent 0.65px)",
+              backgroundSize: "3px 3px",
+            } as object)
+          : null),
+      }}
+    >
+      <ConsoleLogo uri={uri} width={34} height={18} />
     </View>
   );
 }

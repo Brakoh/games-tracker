@@ -87,22 +87,42 @@ async function accessToken() {
   return token.value;
 }
 
-async function igdb(path: string, body: string) {
-  const clientId = credential("TWITCH_CLIENT_ID");
-  const access = await accessToken();
-  if (!clientId || !access) throw new Error("token");
-  const response = await fetch(`https://api.igdb.com/v4/${path}`, {
-    method: "POST",
-    headers: {
-      "Client-ID": clientId,
-      Authorization: `Bearer ${access}`,
-      Accept: "application/json",
-      "Content-Type": "text/plain",
-    },
-    body,
+const MIN_GAP_MS = 250;
+let lastIgdbStart = 0;
+let igdbTail: Promise<unknown> = Promise.resolve();
+
+function pace<T>(run: () => Promise<T>): Promise<T> {
+  const job = igdbTail.then(async () => {
+    const wait = lastIgdbStart + MIN_GAP_MS - Date.now();
+    if (wait > 0) await new Promise((resolve) => setTimeout(resolve, wait));
+    lastIgdbStart = Date.now();
+    return run();
   });
-  if (!response.ok) throw new Error("igdb");
-  return response.json();
+  igdbTail = job.then(
+    () => undefined,
+    () => undefined,
+  );
+  return job;
+}
+
+async function igdb(path: string, body: string) {
+  return pace(async () => {
+    const clientId = credential("TWITCH_CLIENT_ID");
+    const access = await accessToken();
+    if (!clientId || !access) throw new Error("token");
+    const response = await fetch(`https://api.igdb.com/v4/${path}`, {
+      method: "POST",
+      headers: {
+        "Client-ID": clientId,
+        Authorization: `Bearer ${access}`,
+        Accept: "application/json",
+        "Content-Type": "text/plain",
+      },
+      body,
+    });
+    if (!response.ok) throw new Error("igdb");
+    return response.json();
+  });
 }
 
 const SWITCH_FAMILY = [IGDB_PLATFORM.switch, IGDB_PLATFORM["switch-2"]];
@@ -138,7 +158,6 @@ export async function lookupCovers(items: CoverRequest[]) {
     const chunk = pending.slice(start, start + 3);
     const found = await Promise.all(chunk.map(async (item) => [item.key, await gamesFor(item)] as const));
     for (const [key, url] of found) covers[key] = url;
-    if (start + 3 < pending.length) await new Promise((resolve) => setTimeout(resolve, 400));
   }
 
   return covers;
@@ -210,6 +229,86 @@ export async function lookupDetails(item: { title: string; platformId: string })
   };
 }
 
+const CATALOG_PAGE = 40;
+const MAIN_GAME_TYPES = "0,4,8,9,10,11";
+
+function knownPlatformId(igdbId: number | undefined) {
+  if (!igdbId) return undefined;
+  return Object.keys(IGDB_PLATFORM).find((id) => IGDB_PLATFORM[id] === igdbId);
+}
+
+function platformNumbers(value: unknown) {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((entry) => {
+    if (typeof entry === "number") return [entry];
+    if (entry && typeof entry === "object" && typeof (entry as { id?: unknown }).id === "number") return [(entry as { id: number }).id];
+    return [];
+  });
+}
+
+function catalogGameFrom(game: { id?: number; name?: string; cover?: { image_id?: string } | number; platforms?: unknown }): CatalogGame | null {
+  if (!game.id || !game.name) return null;
+  const platforms = [...new Set(platformNumbers(game.platforms).map((id) => knownPlatformId(id)).filter((id): id is string => !!id))];
+  if (!platforms.length) return null;
+  const imageId = typeof game.cover === "object" ? game.cover?.image_id : undefined;
+  return {
+    id: `igdb-${game.id}`,
+    title: game.name,
+    platforms,
+    cover: imageId ? `https://images.igdb.com/igdb/image/upload/t_cover_big_2x/${imageId}.jpg` : undefined,
+  };
+}
+
+export async function searchCatalog(query: string, page: number, platformIds: string[]) {
+  const igdbIds = [...new Set(platformIds.flatMap((id) => igdbPlatforms(id)))];
+  if (!igdbIds.length || page < 1) return { games: [] as CatalogGame[], nextPage: undefined as number | undefined };
+  const trimmed = query.trim().slice(0, 160);
+  const where = `platforms = (${igdbIds.join(",")}) & game_type = (${MAIN_GAME_TYPES})`;
+  const cursor = Math.floor(page);
+  const offset = (cursor - 1) * CATALOG_PAGE;
+  if (!trimmed) {
+    const batch = await catalogBatch(`where ${where}; sort name asc; limit ${CATALOG_PAGE}; offset ${offset};`);
+    const games = acceptCatalog(batch, trimmed);
+    return { games, nextPage: batch.length < CATALOG_PAGE ? undefined : cursor + 1 };
+  }
+  const quoted = quote(trimmed);
+  const prefix = await catalogBatch(`where name ~ ${quoted}* & ${where}; sort name asc; limit ${CATALOG_PAGE}; offset ${offset};`);
+  const games = acceptCatalog(prefix, trimmed);
+  if (prefix.length >= CATALOG_PAGE) return { games, nextPage: cursor + 1 };
+  const infix = await catalogBatch(`where name ~ *${quoted}* & ${where}; sort name asc; limit ${CATALOG_PAGE}; offset ${offset};`);
+  for (const game of acceptCatalog(infix, trimmed)) {
+    if (games.length >= CATALOG_PAGE) break;
+    if (games.some((item) => item.id === game.id)) continue;
+    games.push(game);
+  }
+  const more = prefix.length + infix.length >= CATALOG_PAGE;
+  return { games, nextPage: more ? cursor + 1 : undefined };
+}
+
+async function catalogBatch(clause: string) {
+  const payload = (await igdb("games", `fields id,name,cover.image_id,platforms; ${clause}`)) as {
+    id?: number;
+    name?: string;
+    cover?: { image_id?: string } | number;
+    platforms?: unknown;
+  }[];
+  return Array.isArray(payload) ? payload : [];
+}
+
+function acceptCatalog(
+  batch: { id?: number; name?: string; cover?: { image_id?: string } | number; platforms?: unknown }[],
+  trimmed: string,
+) {
+  const games: CatalogGame[] = [];
+  for (const game of batch) {
+    const catalogGame = catalogGameFrom(game);
+    if (!catalogGame || !nameMatches(catalogGame.title, trimmed)) continue;
+    if (games.some((item) => item.id === catalogGame.id)) continue;
+    games.push(catalogGame);
+  }
+  return games;
+}
+
 const SWITCH2_PAGE = 40;
 
 function switch2Game(game: IgdbGame & { id?: number }): CatalogGame | null {
@@ -232,7 +331,7 @@ export async function switch2Catalog(query: string, page: number) {
     const offset = (cursor - 1) * SWITCH2_PAGE;
     const where = "platforms = (508) & cover != null & game_type = (0,4,8,9,10,11)";
     const body = trimmed
-      ? `search ${quote(trimmed.slice(0, 160))}; fields name,cover.image_id; where ${where}; limit ${SWITCH2_PAGE}; offset ${offset};`
+      ? `fields name,cover.image_id; where name ~ *${quote(trimmed.slice(0, 160))}* & ${where}; sort name asc; limit ${SWITCH2_PAGE}; offset ${offset};`
       : `fields name,cover.image_id; where ${where}; sort name asc; limit ${SWITCH2_PAGE}; offset ${offset};`;
     const payload = (await igdb("games", body)) as (IgdbGame & { id?: number })[];
     const batch = Array.isArray(payload) ? payload : [];

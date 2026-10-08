@@ -1,15 +1,15 @@
 import { router, useLocalSearchParams } from "expo-router";
-import { useEffect, useState } from "react";
-import { ActivityIndicator, ScrollView, Text, View } from "react-native";
+import { useState } from "react";
+import { ScrollView, Text, View } from "react-native";
 
 import { canAdd, possessionId, titleKey } from "../../src/collection";
-import { ConsoleLogo, SearchField, display, frame } from "../../src/components/bits";
+import { ConsoleLogo, SearchField, SearchNotice, display, frame } from "../../src/components/bits";
 import { Phone } from "../../src/components/chrome";
 import { Tap } from "../../src/components/tap";
 import { menuPlatformId, platformById, platformsFor, systemIds } from "../../src/platforms";
 import { useCollection } from "../../src/store";
-import { INK } from "../../src/theme";
 import type { CatalogGame, PlatformDef } from "../../src/types";
+import { useDebouncedSearch } from "../../src/use-debounced-search";
 import { useGameSearch } from "../../src/use-game-search";
 
 export default function AddScreen() {
@@ -22,7 +22,7 @@ export default function AddScreen() {
   const remember = useCollection((state) => state.remember);
   const [query, setQuery] = useState("");
   const [viewport, setViewport] = useState(0);
-  const debounced = useDebounced(query);
+  const debounced = useDebouncedSearch(query);
   const list = platformsFor(switch2RawgId);
   const menuIds = fixed ? [menuPlatformId(fixed)] : list.map((platform) => platform.id);
   const allowed = fixed ? menuIds.flatMap((id) => systemIds(id)) : menuIds;
@@ -33,6 +33,8 @@ export default function AddScreen() {
   const loadMore = () => {
     if (search.hasNextPage && !search.isFetchingNextPage) void search.fetchNextPage();
   };
+  const term = debounced.trim();
+  const pending = query.trim() !== term || (search.isFetching && !search.isFetchingNextPage);
   const title = "Add a game";
 
   return (
@@ -54,6 +56,7 @@ export default function AddScreen() {
         <SearchField value={query} onChange={setQuery} placeholder="Search games" />
         <View style={{ padding: 12, gap: 10 }}>
           {fixed ? <Text style={display(13)}>{platformById(list, menuPlatformId(fixed))?.name}</Text> : null}
+          <SearchNotice pending={pending} term={term} empty={!pending && games.length === 0} />
           {games.map((game) => {
             const owned = ownedPlatforms(copies, order, game.id)
               .map((id) => platformById(list, id))
@@ -69,7 +72,7 @@ export default function AddScreen() {
                 }}
                 style={{ ...frame, padding: 10, flexDirection: "row", alignItems: "center", gap: 10 }}
               >
-                <Text style={{ ...display(16), flex: 1 }}>{game.title}</Text>
+                <Text numberOfLines={1} style={{ ...display(16), flex: 1, minWidth: 0 }}>{game.title}</Text>
                 {owned.length > 0 ? (
                   <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
                     {owned.map((platform) => (
@@ -80,7 +83,7 @@ export default function AddScreen() {
               </Tap>
             );
           })}
-          {search.isLoading || search.isFetchingNextPage ? <ActivityIndicator color={INK} /> : null}
+          {search.isFetchingNextPage ? <SearchNotice pending term="" empty={false} /> : null}
         </View>
       </ScrollView>
     </Phone>
@@ -117,14 +120,5 @@ function PlatformMark({ platform }: { platform: PlatformDef }) {
   if (!platform.logo) {
     return <Text style={display(12)}>{platform.name}</Text>;
   }
-  return <ConsoleLogo uri={platform.logo} width={36} height={22} />;
-}
-
-function useDebounced(value: string) {
-  const [debounced, setDebounced] = useState(value);
-  useEffect(() => {
-    const timer = setTimeout(() => setDebounced(value), value ? 200 : 0);
-    return () => clearTimeout(timer);
-  }, [value]);
-  return debounced;
+  return <ConsoleLogo uri={platform.logo} width={22} height={13} />;
 }

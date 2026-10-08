@@ -41,7 +41,8 @@ export default function PlatformStep() {
   const shownId = owned[0] ?? choices[0] ?? "pc";
   const name = platformById(list, menuPlatformId(shownId))?.name ?? shownId;
   const choiceNames = choices.map((platformId) => platformById(list, platformId)?.name ?? platformId);
-  const front = useCaseCover(id, shownId, game.title) || (game.cover?.startsWith("https://images.igdb.com/") ? game.cover : undefined);
+  const savedCover = game.cover?.startsWith("https://images.igdb.com/") ? game.cover : undefined;
+  const front = useCaseCover(id, shownId, game.title, !savedCover) || savedCover;
   const insets = useSafeAreaInsets();
   const framed = useFramed();
   const scrollY = useRef(new Animated.Value(0)).current;

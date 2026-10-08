@@ -1,4 +1,4 @@
-import { igdbConfigured, lookupCovers, lookupDetails, setIgdbCredentials, switch2Catalog, type CoverRequest } from "../src/igdb";
+import { igdbConfigured, lookupCovers, lookupDetails, searchCatalog, setIgdbCredentials, switch2Catalog, type CoverRequest } from "../src/igdb";
 
 type Env = {
   TWITCH_CLIENT_ID?: string;
@@ -66,6 +66,17 @@ export default {
         const query = typeof parsed.query === "string" ? parsed.query.slice(0, 200) : "";
         const page = typeof parsed.page === "number" && parsed.page > 0 ? Math.floor(parsed.page) : 1;
         const result = await switch2Catalog(query, page);
+        return json({ configured: true, ...result });
+      }
+      if (path.endsWith("/catalog")) {
+        if (!igdbConfigured()) return json({ configured: false, games: [], nextPage: undefined });
+        const parsed = (await request.json().catch(() => ({}))) as { query?: unknown; page?: unknown; platformIds?: unknown };
+        const query = typeof parsed.query === "string" ? parsed.query.slice(0, 200) : "";
+        const page = typeof parsed.page === "number" && parsed.page > 0 ? Math.min(40, Math.floor(parsed.page)) : 1;
+        const platformIds = Array.isArray(parsed.platformIds)
+          ? parsed.platformIds.flatMap((id) => (typeof id === "string" ? [id.slice(0, 40)] : [])).slice(0, 40)
+          : [];
+        const result = await searchCatalog(query, page, platformIds);
         return json({ configured: true, ...result });
       }
       return json({ error: "not found" }, 404);

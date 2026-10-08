@@ -3,7 +3,7 @@ import { Platform } from "react-native";
 
 const PUBLIC_DOOR = "https://collection-igdb.brakoh-collection.workers.dev";
 
-export function collectionDoor(path: "/covers" | "/switch-2" | "/details") {
+export function collectionDoor(path: "/covers" | "/switch-2" | "/details" | "/catalog") {
   if (Platform.OS === "web" && typeof location !== "undefined") {
     const host = location.hostname;
     if (host === "localhost" || host === "127.0.0.1") return path;

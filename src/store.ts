@@ -6,7 +6,6 @@ import { createJSONStorage, persist } from "zustand/middleware";
 
 import { withCopy, withoutCopy } from "./collection";
 import { isSwitch, menuPlatformId, platformsFor, shownOrder } from "./platforms";
-import { SEED_GAMES } from "./seed";
 import type { CatalogGame, Copy, SortMode } from "./types";
 
 type CollectionState = {
@@ -27,17 +26,20 @@ type CollectionState = {
   turnOff: (id: string) => void;
   setSort: (sort: SortMode) => void;
   setShelfView: (shelfView: "grid" | "list") => void;
+  finishCopies: (items: { gameId: string; platformId: string }[]) => void;
+  unfinishCopies: (items: { gameId: string; platformId: string }[]) => void;
+  removeCopies: (items: { gameId: string; platformId: string }[]) => void;
   remember: (game: CatalogGame) => void;
   toggleFinished: (gameId: string, platformId: string) => void;
-  togglePlaying: (gameId: string, platformId: string) => void;
   addCopy: (game: CatalogGame, platformId: string) => void;
   removeCopy: (gameId: string, platformId: string) => void;
   addWish: (game: CatalogGame) => void;
   removeWish: (gameId: string) => void;
 };
 
-function seedCatalog() {
-  return Object.fromEntries(SEED_GAMES.map((game) => [game.id, { ...game, platforms: [...game.platforms] }]));
+function ownedCatalog(catalog: Record<string, CatalogGame>, copies: Copy[], wishes: string[]) {
+  const ids = new Set([...copies.map((copy) => copy.gameId), ...wishes]);
+  return Object.fromEntries(Object.entries(catalog).filter(([id]) => ids.has(id)));
 }
 
 if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -102,7 +104,7 @@ export const useCollection = create<CollectionState>()(
       favorites: [],
       copies: [],
       wishes: [],
-      catalog: seedCatalog(),
+      catalog: {},
       sort: "alpha",
       shelfView: "grid",
       switch2RawgId: null,
@@ -160,17 +162,31 @@ export const useCollection = create<CollectionState>()(
       },
       setSort: (sort) => set({ sort }),
       setShelfView: (shelfView) => set({ shelfView }),
+      finishCopies: (items) => {
+        const wanted = new Set(items.map((item) => `${item.gameId}:${item.platformId}`));
+        set({
+          copies: get().copies.map((copy) =>
+            wanted.has(`${copy.gameId}:${copy.platformId}`) ? { ...copy, finished: true } : copy,
+          ),
+        });
+      },
+      unfinishCopies: (items) => {
+        const wanted = new Set(items.map((item) => `${item.gameId}:${item.platformId}`));
+        set({
+          copies: get().copies.map((copy) =>
+            wanted.has(`${copy.gameId}:${copy.platformId}`) ? { ...copy, finished: false } : copy,
+          ),
+        });
+      },
+      removeCopies: (items) => {
+        const wanted = new Set(items.map((item) => `${item.gameId}:${item.platformId}`));
+        set({ copies: get().copies.filter((copy) => !wanted.has(`${copy.gameId}:${copy.platformId}`)) });
+      },
       remember: (game) => set({ catalog: { ...get().catalog, [game.id]: game } }),
       toggleFinished: (gameId, platformId) =>
         set({
           copies: get().copies.map((copy) =>
-            copy.gameId === gameId && copy.platformId === platformId ? { ...copy, finished: !copy.finished, playing: false } : copy,
-          ),
-        }),
-      togglePlaying: (gameId, platformId) =>
-        set({
-          copies: get().copies.map((copy) =>
-            copy.gameId === gameId && copy.platformId === platformId ? { ...copy, playing: !copy.playing, finished: false } : copy,
+            copy.gameId === gameId && copy.platformId === platformId ? { ...copy, finished: !copy.finished } : copy,
           ),
         }),
       addCopy: (game, platformId) => {
@@ -194,13 +210,17 @@ export const useCollection = create<CollectionState>()(
     {
       name: "collection-v2",
       storage: createJSONStorage(() => AsyncStorage),
-      version: 1,
+      version: 3,
       migrate: (persisted, version) => {
-        const state = persisted as { copies?: (Copy & { formats?: string[] })[] };
+        const state = persisted as CollectionState & { copies?: (Copy & { formats?: string[] })[] };
         if (version < 1 && state.copies) {
           state.copies = state.copies
             .filter((copy) => !copy.formats || copy.formats.length > 0)
             .map(({ gameId, platformId, finished }) => ({ gameId, platformId, finished: !!finished }));
+        }
+        if (version < 2) state.catalog = ownedCatalog(state.catalog ?? {}, state.copies ?? [], state.wishes ?? []);
+        if (version < 3 && state.copies) {
+          state.copies = state.copies.map(({ gameId, platformId, finished }) => ({ gameId, platformId, finished: !!finished }));
         }
         return state as CollectionState;
       },
@@ -211,7 +231,7 @@ export const useCollection = create<CollectionState>()(
         favorites: state.favorites,
         copies: state.copies,
         wishes: state.wishes,
-        catalog: state.catalog,
+        catalog: ownedCatalog(state.catalog, state.copies, state.wishes),
         sort: state.sort,
         shelfView: state.shelfView,
         switch2RawgId: state.switch2RawgId,

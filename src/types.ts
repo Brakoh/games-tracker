@@ -11,7 +11,6 @@ export type Copy = {
   gameId: string;
   platformId: string;
   finished: boolean;
-  playing?: boolean;
 };
 
 export type PlatformDef = {
