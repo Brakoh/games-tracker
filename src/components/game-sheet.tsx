@@ -7,7 +7,7 @@ import { useGameDetails } from "../game-details";
 import { platformById, platformsFor } from "../platforms";
 import type { GameDetails } from "../igdb";
 import { BODY, CARD, DISPLAY, hard, hardSm, INK, PAPER, RED } from "../theme";
-import { display } from "./bits";
+import { SkewTag, display } from "./bits";
 import { BannerDither, CaseFace, CaseRow, useFramed } from "./chrome";
 import { Tap } from "./tap";
 
@@ -15,6 +15,39 @@ export type FeaturedGame = GameDetails["related"][number];
 
 const BANNER_HEIGHT = 220;
 const OVERLAP = 72;
+const BAND = "#E3DCC8";
+
+export function sheetTopSpace(framed: boolean, insetTop: number) {
+  return (framed ? 12 : Math.max(insetTop, 12)) + 52;
+}
+
+export function FloatingBack({ onPress, scrollY }: { onPress: () => void; scrollY: Animated.Value }) {
+  const insets = useSafeAreaInsets();
+  const framed = useFramed();
+  const top = framed ? 12 : Math.max(insets.top, 12);
+  return (
+    <>
+      <Animated.View
+        pointerEvents="none"
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          right: 0,
+          height: top * 2 + 40,
+          zIndex: 3,
+          backgroundColor: BAND,
+          borderBottomWidth: 3,
+          borderBottomColor: INK,
+          opacity: scrollY.interpolate({ inputRange: [40, 120], outputRange: [0, 1], extrapolate: "clamp" }),
+        }}
+      />
+      <View style={{ position: "absolute", top, left: 12, right: 12, zIndex: 4, flexDirection: "row", alignItems: "center" }}>
+        <SkewTag label="Back" onPress={onPress} height={34} />
+      </View>
+    </>
+  );
+}
 
 export function GameSheet({
   title,

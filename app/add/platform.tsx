@@ -5,19 +5,11 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useCaseCover } from "../../src/case-cover";
 import { titleKey } from "../../src/collection";
-import { SkewTag } from "../../src/components/bits";
 import { Phone, useFramed } from "../../src/components/chrome";
-import { AddButton, Checkbox, GameSheet } from "../../src/components/game-sheet";
+import { AddButton, Checkbox, FloatingBack, GameSheet, sheetTopSpace } from "../../src/components/game-sheet";
 import { menuPlatformId, platformById, platformsFor } from "../../src/platforms";
 import { useCollection } from "../../src/store";
-import { INK } from "../../src/theme";
 import type { CatalogGame, Copy } from "../../src/types";
-
-const BAND = "#E3DCC8";
-const BAND_FADE = [40, 120];
-const MENU_BUTTON_HEIGHT = 34;
-const BAND_RULE = 3;
-const BUTTON_SHADOW = 3;
 
 export default function PlatformStep() {
   const { gameId } = useLocalSearchParams<{ gameId: string }>();
@@ -46,8 +38,6 @@ export default function PlatformStep() {
   const insets = useSafeAreaInsets();
   const framed = useFramed();
   const scrollY = useRef(new Animated.Value(0)).current;
-  const top = framed ? 12 : Math.max(insets.top, 12);
-  const band = top * 2 + MENU_BUTTON_HEIGHT + BUTTON_SHADOW + BAND_RULE;
 
   const confirm = () => {
     const nextActive = { ...active };
@@ -80,7 +70,7 @@ export default function PlatformStep() {
 
   return (
     <Phone bare footer={<AddButton label="Add game" enabled={selected.size > 0} onPress={confirm} />}>
-      <GameSheet title={game.title} platformId={shownId} platformName={name} platformNames={choiceNames} cover={front} topSpace={top + 52} bottomSpace={110} scrollY={scrollY}>
+      <GameSheet title={game.title} platformId={shownId} platformName={name} platformNames={choiceNames} cover={front} topSpace={sheetTopSpace(framed, insets.top)} bottomSpace={110} scrollY={scrollY}>
         <View style={{ gap: 10 }}>
           {pairs(choices).map((pair) => (
             <View key={pair[0]} style={{ flexDirection: "row", gap: 10 }}>
@@ -107,28 +97,7 @@ export default function PlatformStep() {
           ))}
         </View>
       </GameSheet>
-      <Animated.View
-        pointerEvents="none"
-        style={{
-          position: "absolute",
-          top: 0,
-          left: 0,
-          right: 0,
-          height: band,
-          zIndex: 3,
-          backgroundColor: BAND,
-          borderBottomWidth: BAND_RULE,
-          borderBottomColor: INK,
-          opacity: scrollY.interpolate({
-            inputRange: BAND_FADE,
-            outputRange: [0, 1],
-            extrapolate: "clamp",
-          }),
-        }}
-      />
-      <View style={{ position: "absolute", top, left: 12, right: 12, flexDirection: "row", alignItems: "center", zIndex: 4 }}>
-        <SkewTag label="Back" onPress={() => router.back()} height={MENU_BUTTON_HEIGHT} />
-      </View>
+      <FloatingBack onPress={() => router.back()} scrollY={scrollY} />
     </Phone>
   );
 }

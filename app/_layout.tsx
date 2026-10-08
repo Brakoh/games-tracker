@@ -77,7 +77,7 @@ export default function RootLayout() {
               gestureEnabled: false,
               cardShadowEnabled: false,
               cardOverlayEnabled: false,
-              cardStyle: { backgroundColor: PAPER },
+              cardStyle: { backgroundColor: PAPER, flex: 1, height: "100%", maxHeight: "100%", overflow: "hidden" },
             }}
           />
         </QueryClientProvider>

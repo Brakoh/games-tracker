@@ -1,8 +1,11 @@
 import { router, useLocalSearchParams } from "expo-router";
+import { useRef } from "react";
+import { Animated } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useCaseCover } from "../../src/case-cover";
-import { Phone } from "../../src/components/chrome";
-import { AddButton, GameSheet } from "../../src/components/game-sheet";
+import { Phone, useFramed } from "../../src/components/chrome";
+import { AddButton, FloatingBack, GameSheet, sheetTopSpace } from "../../src/components/game-sheet";
 import { platformById, platformsFor, menuPlatformId } from "../../src/platforms";
 import { useCollection } from "../../src/store";
 
@@ -17,12 +20,13 @@ export default function ConfirmStep() {
   const name = platformById(platformsFor(switch2RawgId), menuPlatformId(platformId))?.name ?? platformId;
   const savedCover = game.cover?.startsWith("https://images.igdb.com/") ? game.cover : undefined;
   const front = useCaseCover(gameId, platformId, game.title, !savedCover) || savedCover;
+  const insets = useSafeAreaInsets();
+  const framed = useFramed();
+  const scrollY = useRef(new Animated.Value(0)).current;
 
   return (
     <Phone
-      title="Add a game"
-      showBack
-      onBack={() => router.back()}
+      bare
       footer={
         <AddButton
           label="Add game"
@@ -33,7 +37,8 @@ export default function ConfirmStep() {
         />
       }
     >
-      <GameSheet title={game.title} platformId={platformId} platformName={name} cover={front} bottomSpace={110} />
+      <GameSheet title={game.title} platformId={platformId} platformName={name} cover={front} topSpace={sheetTopSpace(framed, insets.top)} bottomSpace={110} scrollY={scrollY} />
+      <FloatingBack onPress={() => router.back()} scrollY={scrollY} />
     </Phone>
   );
 }
